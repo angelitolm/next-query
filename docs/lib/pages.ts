@@ -85,5 +85,5 @@ export async function loadPage(locale: Locale, slug: Slug): Promise<ComponentTyp
 }
 
 export const REPO = 'https://github.com/angelitolm/next-query'
-export const REPO_PUBLIC = false
+export const REPO_PUBLIC = true
 export const editUrl = (locale: Locale, slug: Slug) => `${REPO}/edit/main/docs/content/${locale}/${slug}.mdx`
