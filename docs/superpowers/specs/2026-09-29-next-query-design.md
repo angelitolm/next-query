@@ -73,7 +73,7 @@ type Entry = {
   runs: number           // fn executions (cache misses)
   lastDurationMs?: number
   error?: string         // last error message, cleared on the next success
-  preview?: string       // JSON of data, cut to ~2 KB
+  preview?: string       // JSON of data, cut to ~16 KB
   lastReadAt: number
 }
 ```
@@ -102,7 +102,7 @@ Verified 2026-09-29: a 'use server' module in the package is callable from the p
 - Open state: a panel docked at the bottom.
   - Left, list: key (`["products","1"]`), status badge (fresh / stale / error), "12s ago". Text filter on the key, and sort by updated, status or key.
   - Right, detail: tags, `revalidate`, `dataUpdatedAt`, reads/runs, last duration, error, data preview in a `<pre>`.
-  - Actions: one ↻ per prefix level (`products`, `products/1`), and "Revalidate all" at the top. A server action that calls `revalidateTag` makes Next re-render the current page in the same response, so no `router.refresh()` is needed; the panel reloads its list after the action returns. (Verified in the plan; `router.refresh()` is the fallback.)
+  - Actions: one ↻ per prefix level (`products`, `products/1`), and "Revalidate all" at the top. After an action, the panel calls `router.refresh()` in a transition and reloads its list when the transition ends. (Checked in a browser: the action resolves before the page's re-render finishes, so reloading right after the action reads the registry too early.)
 - Data loads on mount and on route change (for the button's counts), when the panel opens, after each action, and on a manual ↻. No polling.
 - If an action call fails, the panel shows the error with a hint and the page keeps working.
 - Self-contained so a future NextKit can mount it next to `<NextToolbar />`: CSS classes prefixed `nq-`, styles inlined like next-toolbar's `styles.ts`, no assumptions about other overlays.
