@@ -60,7 +60,7 @@ A `page.tsx` that exports the segment config `export const revalidate = 60` can'
 
 ## Registry (server, dev only)
 
-A `Map<string, Entry>` on `globalThis.__nextQuery`, which survives HMR re-evaluating modules. `query()` writes to it only when `NODE_ENV === 'development'`. In production, `query()` is `unstable_cache` plus tags, with no extra work.
+A `Map<string, Entry>` on `globalThis.__nextQuery` (typed locally, so the package's `.d.ts` declares no globals), which survives HMR re-evaluating modules. `query()` writes to it only when `NODE_ENV === 'development'`. In production, `query()` is `unstable_cache` plus tags, with no extra work.
 
 ```ts
 type Entry = {

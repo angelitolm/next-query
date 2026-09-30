@@ -22,7 +22,7 @@ jobs:
           node-version: 24
           cache: pnpm
           registry-url: https://registry.npmjs.org
-      - run: npm install -g npm@latest # trusted publishing needs npm >= 11.5.1
+      - run: npm install -g npm@11 # trusted publishing needs npm >= 11.5.1
       - run: pnpm install --frozen-lockfile
       - name: Tag must match package version
         run: test "v$(node -p "require('./packages/next-query/package.json').version")" = "$GITHUB_REF_NAME"

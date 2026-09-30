@@ -61,7 +61,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 ```
 
-In `next dev`, a round launcher with the logo sits in the bottom-right corner, with a bubble showing the stale and error count. The panel lists each key with its status and a freshness bar that counts down to stale (`revalidate: false` shows "never stale"). Open a key for its fetched time, reads and runs, last run, tags (click a tag to revalidate that prefix) and the data as highlighted JSON with a copy button. "Revalidate all" refreshes every query. Use `position="bottom-left"` to move it.
+In `next dev`, a round launcher with the logo sits in the bottom-right corner, with a bubble showing the stale and error count. The panel lists each key with its status and a freshness bar that counts down to stale (`revalidate: false` shows "never stale"). Each card has a ↻ that revalidates that key. Open a key for its fetched time, reads and runs, last run, a Revalidate button, tags (click a tag chip to revalidate that prefix) and the data as highlighted JSON with a copy button. "Revalidate all" refreshes every query, and the ↻ in the header only reloads the list without revalidating anything. Use `position="bottom-left"` to move it.
 
 Outside development `<NextQuery />` renders nothing, and its server actions refuse to run.
 

@@ -261,7 +261,7 @@ function Detail({ row, now, busy, onRevalidate, onError }: DetailProps) {
               {tag}
             </span>
           ) : (
-            <button key={tag} className="tag-btn" disabled={busy} onClick={() => onRevalidate(keyPrefixes[i - 1])} title={`Revalidate ${keyPrefixes[i - 1].join('/')}`}>
+            <button key={tag} className="tag-btn" disabled={busy} onClick={() => onRevalidate(keyPrefixes[i - 1])} title={`Revalidate ${keyPrefixes[i - 1].join('/')}`} aria-label={`Revalidate ${keyPrefixes[i - 1].join('/')}`}>
               {tag}
               <Refresh2 size={12} className="tag-ico" />
             </button>
@@ -282,10 +282,12 @@ function DataView({ text, onError }: { text: string; onError: (message: string) 
     return () => clearTimeout(id)
   }, [copied])
   const copy = () =>
-    navigator.clipboard.writeText(text).then(
-      () => setCopied(true),
-      (e) => onError(`Copy failed: ${message(e)}`),
-    )
+    Promise.resolve()
+      .then(() => navigator.clipboard.writeText(text))
+      .then(
+        () => setCopied(true),
+        (e) => onError(`Copy failed: ${message(e)}`),
+      )
   return (
     <div className="data">
       <div className="data-tools">

@@ -191,6 +191,7 @@ header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding:
 .tag { border-style: dashed; color: var(--nq-dim); }
 .tag-btn::before, .tag::before { content: '#'; opacity: .6; }
 .tag-btn { gap: 5px; }
+.tag-btn::before { margin-right: -5px; }
 .tag-btn .tag-ico { opacity: .55; transition: opacity .15s; }
 .tag-btn:hover { background: var(--nq-hover); border-color: color-mix(in srgb, var(--nq-accent) 45%, var(--nq-border)); }
 .tag-btn:hover .tag-ico, .tag-btn:focus-visible .tag-ico { opacity: 1; }

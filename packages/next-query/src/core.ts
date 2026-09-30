@@ -66,7 +66,7 @@ export const keyLabel = (key: QueryKey) => JSON.stringify(key)
 export const prefixes = (key: QueryKey): QueryKey[] => key.map((_, i) => key.slice(0, i + 1))
 
 export function status(entry: Pick<Entry, 'error' | 'revalidate' | 'dataUpdatedAt'>, now: number): Status {
-  if (entry.error) return 'error'
+  if (entry.error !== undefined) return 'error'
   if (entry.revalidate !== false && entry.dataUpdatedAt !== undefined && now - entry.dataUpdatedAt > entry.revalidate * 1000) return 'stale'
   return 'fresh'
 }
@@ -144,12 +144,10 @@ function compareKeys(a: QueryKey, b: QueryKey): number {
 }
 
 // Dev-only registry. On globalThis so HMR re-evaluating this module keeps it.
-declare global {
-  // eslint-disable-next-line no-var
-  var __nextQuery: Map<string, Entry> | undefined
+export const registry = (): Map<string, Entry> => {
+  const g = globalThis as { __nextQuery?: Map<string, Entry> }
+  return (g.__nextQuery ??= new Map())
 }
-
-export const registry = (): Map<string, Entry> => (globalThis.__nextQuery ??= new Map())
 
 export function recordRead(key: QueryKey, revalidate: number | false, now = Date.now()): Entry {
   const hash = hashKey(key)
@@ -173,7 +171,14 @@ export function recordSuccess(entry: Entry, data: unknown, dataUpdatedAt: number
 }
 
 export function recordError(entry: Entry, error: unknown): void {
-  entry.error = error instanceof Error ? error.message : String(error)
+  // The fallbacks keep an empty message reading as an error (status() checks for undefined).
+  entry.error = error instanceof Error ? error.message || error.name : String(error)
+}
+
+// notFound(), redirect() and friends throw errors carrying a NEXT_* digest: control flow, not query failures.
+export function isNextControlFlow(error: unknown): boolean {
+  const digest = (error as { digest?: unknown } | null)?.digest
+  return typeof digest === 'string' && digest.startsWith('NEXT_')
 }
 
 export const snapshot = (): Entry[] => [...registry().values()].map((e) => ({ ...e, key: [...e.key], tags: [...e.tags] }))

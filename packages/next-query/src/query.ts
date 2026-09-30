@@ -1,13 +1,13 @@
 import { revalidateTag, unstable_cache } from 'next/cache'
-import { hashKey, keyToTags, normalizeKey, recordError, recordRead, recordRun, recordSuccess, validateKey, validateRevalidate, type QueryKey } from './core.js'
+import { hashKey, keyToTags, normalizeKey, isNextControlFlow, recordError, recordRead, recordRun, recordSuccess, validateKey, validateRevalidate, type QueryKey } from './core.js'
 
-export type QueryOptions = {
+export type QueryConfig = {
   /** Seconds until the data is stale and refetched on the next read, or false (default) to keep it until revalidated. */
   revalidate?: number | false
 }
 
 /** Caches `fn`'s result under `key`. `fn`'s result must be JSON-serializable. */
-export async function query<T>(key: QueryKey, fn: () => T | Promise<T>, options: QueryOptions = {}): Promise<T> {
+export async function query<T>(key: QueryKey, fn: () => T | Promise<T>, options: QueryConfig = {}): Promise<T> {
   validateKey(key)
   const after = options.revalidate ?? false
   validateRevalidate(after)
@@ -32,7 +32,7 @@ export async function query<T>(key: QueryKey, fn: () => T | Promise<T>, options:
     if (entry) recordSuccess(entry, data, dataUpdatedAt)
     return data
   } catch (error) {
-    if (entry) recordError(entry, error)
+    if (entry && !isNextControlFlow(error)) recordError(entry, error)
     throw error
   }
 }

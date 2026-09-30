@@ -1,7 +1,7 @@
 import { test, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  ago, freshness, hashKey, jsonTokens, keyLabel, keyToTags, normalizeKey, prefixes, preview, recordError, recordRead, recordRun, recordSuccess,
+  ago, freshness, hashKey, isNextControlFlow, jsonTokens, keyLabel, keyToTags, normalizeKey, prefixes, preview, recordError, recordRead, recordRun, recordSuccess,
   registry, shortDuration, snapshot, sortEntries, status, validateKey, validateRevalidate, type Entry,
 } from './core.ts'
 
@@ -115,7 +115,7 @@ test('registry records reads, runs, success and errors', () => {
 
 test('registry lives on globalThis and snapshot is a copy', () => {
   recordRead(['a'], false)
-  assert.equal(globalThis.__nextQuery, registry())
+  assert.equal((globalThis as { __nextQuery?: Map<string, Entry> }).__nextQuery, registry())
   const [copy] = snapshot()
   copy.key.push('mutated')
   copy.tags.push('mutated')
@@ -165,4 +165,20 @@ test('jsonTokens round-trips a truncated preview without throwing', () => {
   assert.equal(jsonTokens(text).map((t) => t.text).join(''), text)
   const broken = '{"a": "unterminated\n  x'
   assert.equal(jsonTokens(broken).map((t) => t.text).join(''), broken)
+})
+
+test('an empty error message still reads as an error', () => {
+  const e = recordRead(['empty'], false)
+  recordError(e, new Error(''))
+  assert.equal(status(e, 0), 'error')
+  assert.equal(e.error, 'Error')
+})
+
+test('isNextControlFlow spots notFound/redirect digests only', () => {
+  assert.equal(isNextControlFlow(Object.assign(new Error('NEXT_REDIRECT'), { digest: 'NEXT_REDIRECT;replace;/x;307;' })), true)
+  assert.equal(isNextControlFlow({ digest: 'NEXT_HTTP_ERROR_FALLBACK;404' }), true)
+  assert.equal(isNextControlFlow(new Error('boom')), false)
+  assert.equal(isNextControlFlow(Object.assign(new Error('x'), { digest: '12345' })), false)
+  assert.equal(isNextControlFlow(null), false)
+  assert.equal(isNextControlFlow('NEXT_REDIRECT'), false)
 })
