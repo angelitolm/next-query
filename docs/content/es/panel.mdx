@@ -49,7 +49,7 @@ Cada entrada es una tarjeta con:
 - Su **etiqueta**: la URL de un fetch (host y ruta, cortada por el medio si es larga), o la clave JSON de una query.
 - Una **píldora de estado**: `fresh` (de lima a cian), `stale` o `error`.
 - Una **barra de frescura** que cuenta hacia atrás hasta quedar obsoleta, con una etiqueta como `6S LEFT` o `STALE 12S`. Una entrada sin ventana de `revalidate` muestra "never stale", porque se conserva hasta que la revalides.
-- Un botón **↻**. En un fetch revalida todos los tags del fetch; en una query, el tag más profundo de la clave. Su tooltip nombra los tags.
+- Un botón **↻**. En un fetch revalida sus tags más específicos (las hojas); en una query, el tag más profundo de la clave. Su tooltip nombra los tags. Para revalidar todos los productos, haz clic en el chip `products` del detalle.
 
 ## Estado revalidado
 

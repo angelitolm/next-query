@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { createPortal } from 'react-dom'
 import { usePathname, useRouter } from 'next/navigation'
-import { ago, chunk, freshness, MAX_TAGS, jsonTokens, sortEntries, status, type Entry, type Sort, type Status } from './core.js'
+import { ago, chunk, freshness, leafTags, MAX_TAGS, jsonTokens, sortEntries, status, type Entry, type Sort, type Status } from './core.js'
 import { CloseCircle, Copy, CopySuccess, Refresh2, SearchNormal1, Clock, Activity, Key, Timer1, Repeat, Flash, Hashtag } from './icons.js'
 import { Logo } from './Logo.js'
 import { css } from './styles.js'
@@ -14,8 +14,8 @@ export type PanelProps = { source: Source; live: boolean; position?: 'bottom-rig
 type Row = Entry & { status: Status }
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
-// What a card's revalidate button expires: a query's deepest tag, every tag of a fetch.
-const cardTags = (e: Entry) => (e.kind === 'query' ? e.tags.slice(-1) : e.tags)
+// What a card's revalidate button expires: a query's deepest tag, a fetch's leaf (most specific) tags.
+const cardTags = (e: Entry) => (e.kind === 'query' ? e.tags.slice(-1) : leafTags(e.tags))
 
 // 'http://localhost:3000/api/products?x=1' -> 'localhost:3000/api/products?x=1', cut in the middle when long.
 function shortUrl(url: string, max = 44): string {

@@ -49,7 +49,7 @@ Each entry is a card with:
 - Its **label**: the URL of a fetch (host and path, cut in the middle when long), or the JSON key of a query.
 - A **status pill**: `fresh` (lime to cyan), `stale` or `error`.
 - A **freshness bar** that counts down to stale, with a label such as `6S LEFT` or `STALE 12S`. An entry without a `revalidate` window shows "never stale", since it is kept until revalidated.
-- A **↻** button. On a fetch it revalidates all of the fetch's tags; on a query, the key's deepest tag. Its tooltip names the tags.
+- A **↻** button. On a fetch it revalidates the fetch's most specific (leaf) tags; on a query, the key's deepest tag. Its tooltip names the tags. To revalidate every product, click the `products` chip in the detail view.
 
 ## Revalidated state
 

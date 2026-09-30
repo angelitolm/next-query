@@ -70,7 +70,7 @@ type Entry = {
   - A query card shows its JSON key.
   - A fetch card shows the URL (path and host, truncated in the middle if long) plus a small `fetch` / `query` kind badge.
   - The status pill and freshness bar work as today.
-  - The ↻ button revalidates a query's deepest tag, or all of a fetch's tags. Its tooltip names the tags.
+  - The ↻ button revalidates a query's deepest tag, or a fetch's leaf tags (tags that no other of its tags extends). Its tooltip names the tags.
 - **Detail.**
   - Query entries keep today's rows.
   - Fetch entries show URL, Status, Revalidate, Updated and Tags.
