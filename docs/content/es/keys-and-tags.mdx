@@ -1,1 +1,51 @@
-# Claves y tags
+Una clave es un array que da nombre a una entrada de caché y, segmento a segmento, a una cadena de tags a los que apunta [`revalidate()`](./revalidate). Esta página tiene las reglas exactas.
+
+## Reglas de la clave
+
+- La clave es un **array no vacío**.
+- Cada segmento es un **string no vacío** o un **número finito**. `NaN`, `Infinity`, `''`, `null`, objetos y booleanos lanzan un `TypeError`.
+
+```ts title="Claves válidas e inválidas"
+query(['products'], fn)               // ok
+query(['products', 1, 'reviews'], fn) // ok
+query([], fn)                         // TypeError: key must be a non-empty array
+query(['products', ''], fn)           // TypeError: key segments must be non-empty strings or finite numbers
+query(['products', NaN], fn)          // TypeError
+```
+
+`['products', 1]` y `['products', '1']` son **entradas de caché distintas**, porque la entrada se identifica por el JSON de la clave. Comparten los mismos tags, así que revalidar cualquiera de las dos refresca ambas.
+
+## Tags
+
+Cada clave produce un tag por segmento, más un tag raíz. Los segmentos se unen con `/`:
+
+| Clave | Tags |
+|---|---|
+| `['products', 1]` | `nq`, `nq:products`, `nq:products/1` |
+| `['products', 1, 'reviews']` | `nq`, `nq:products`, `nq:products/1`, `nq:products/1/reviews` |
+
+`revalidate(key)` expira el tag **más profundo** de la clave, y todas las entradas por debajo llevan ese tag. Eso es lo que hace que la revalidación funcione por prefijo.
+
+El tag raíz `nq` está en todas las queries. Es el que usa **Revalidate all** en [el panel](./panel).
+
+## Escapado
+
+`/` separa segmentos dentro de un tag, así que se escapa cuando aparece dentro de uno: `/` pasa a ser `%2F` y `%` pasa a ser `%25`. Así se mantienen separadas claves que de otro modo chocarían:
+
+| Clave | Tag |
+|---|---|
+| `['a/b']` | `nq:a%2Fb` |
+| `['a', 'b']` | `nq:a/b` |
+
+Por eso `['a/b']` y `['a', 'b']` no tienen relación, y `revalidate('a')` no llega a `['a/b']`.
+
+## Límites
+
+Next limita los tags de una entrada de caché, y next-query comprueba ambos límites de antemano y lanza un `TypeError`:
+
+- **256 caracteres** por tag. Cuentan los segmentos largos, el prefijo `nq:` y el escapado.
+- **128 tags** por entrada. Una clave genera un tag por segmento más el raíz, así que una clave puede tener como máximo **127 segmentos**.
+
+<Callout type="note" title="Mantén las claves cortas y estructuradas">
+  Una clave como `['posts', slug]` es un nombre, no una carga de datos. Pon un valor en la clave solo cuando cambie lo que devuelve `fn`.
+</Callout>

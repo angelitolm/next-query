@@ -1,1 +1,62 @@
-# revalidate
+`revalidate()` expira los datos cacheados bajo una clave, de modo que la siguiente lectura vuelve a ejecutar `fn`.
+
+## Firma
+
+```ts title="@angelitolm/next-query"
+function revalidate(key: QueryKey | string): void
+```
+
+Un string es la forma corta de una clave de un solo segmento: `revalidate('products')` equivale a `revalidate(['products'])`.
+
+```ts title="app/actions.ts"
+'use server'
+import { revalidate } from '@angelitolm/next-query'
+
+export async function renameProduct(id: string, name: string) {
+  await db.rename(id, name)
+  revalidate(['products', id]) // este producto y todo lo que cuelga de él
+}
+```
+
+## Semántica de prefijo
+
+Una clave cubre la propia clave y todas las que empiezan por ella.
+
+| Llamada | Revalida |
+|---|---|
+| `revalidate('products')` | `['products']`, `['products', 1]`, `['products', 1, 'reviews']` |
+| `revalidate(['products', 1])` | `['products', 1]` y lo de debajo, no `['products']` |
+
+Diseña tus claves de lo general a lo específico (`['products', id, 'reviews']`) y una sola llamada puede refrescar una rama entera. En [Claves y tags](./keys-and-tags) ves cómo se traduce esto a tags.
+
+## Dónde llamarla
+
+Llámala desde **server actions** y **route handlers**, después de cambiar los datos. Next no permite revalidar mientras se renderiza una página.
+
+```ts title="app/api/products/route.ts"
+import { revalidate } from '@angelitolm/next-query'
+
+export async function POST(request: Request) {
+  await db.create(await request.json())
+  revalidate('products')
+  return Response.json({ ok: true })
+}
+```
+
+Una clave inválida lanza el mismo `TypeError` que `query()`.
+
+## Por debajo
+
+`revalidate()` llama a `revalidateTag(<tag más profundo de la clave>, { expire: 0 })`. `expire: 0` expira la entrada al instante en Next 16; en Next 15, `revalidateTag` no recibe segundo argumento y lo ignora. El mismo código funciona en ambos.
+
+## El choque de nombres con `export const revalidate`
+
+Una página puede exportar una opción de segmento de ruta llamada `revalidate`. Si importas `revalidate` de next-query en ese mismo archivo, los dos nombres chocan (`the name 'revalidate' is already declared`). Renombra la importación:
+
+```tsx title="app/products/page.tsx"
+import { revalidate as revalidateQuery } from '@angelitolm/next-query'
+
+export const revalidate = 60
+```
+
+La opción de segmento y la función de la librería no tienen relación. En archivos sin ese export, el nombre normal sirve.

@@ -1,1 +1,61 @@
-# El panel
+El panel es una herramienta de desarrollo. Lista cada `query()` que se ha ejecutado en tu app, muestra lo fresca que está cada una y revalida cualquiera con un clic. Pruébalo en la [demo en vivo](./demo).
+
+## Móntalo
+
+Ponlo una sola vez en el layout raíz:
+
+```tsx title="app/layout.tsx"
+import { NextQuery } from '@angelitolm/next-query'
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        {children}
+        <NextQuery position="bottom-left" />
+      </body>
+    </html>
+  )
+}
+```
+
+`position` es `'bottom-right'` (por defecto) o `'bottom-left'`. Fuera de `next dev` no renderiza nada.
+
+## El lanzador
+
+Un botón redondo con el logo en la esquina. Una burbuja encima cuenta las queries **obsoletas más las que tienen un error**. Cuando todo está fresco, en su lugar aparece un punto con degradado. Haz clic para abrir el panel.
+
+## La cabecera
+
+- Contadores: cuántas queries hay, cuántas obsoletas y cuántas con error.
+- **Filter by key**: filtra comparando con la clave como texto, por ejemplo `products`.
+- **Sort**: Updated (la más reciente primero, por defecto), Status (errores, luego obsoletas, luego frescas) o Key (los padres justo antes de sus hijos).
+- **Revalidate all**: revalida todas las queries, a través del tag raíz.
+- **Reload list**: vuelve a pedir la lista. No revalida nada.
+- Cerrar.
+
+## Tarjetas
+
+Cada query es una tarjeta con:
+
+- Su **clave**.
+- Una **píldora de estado**: `fresh` (de lima a cian), `stale` o `error`.
+- Una **barra de frescura** que cuenta hacia atrás hasta quedar obsoleta, con una etiqueta como `6S LEFT` o `STALE 12S`. Una query sin ventana de `revalidate` muestra "never stale", porque se conserva hasta que la revalides.
+- Un botón **↻** que revalida esa clave (y todo lo que cuelga de ella).
+
+## Detalle
+
+Selecciona una tarjeta para ver su detalle:
+
+- Un botón **Revalidate** para la clave.
+- Filas: Status, Revalidate (la ventana, o `never`), Updated, Reads / runs y Last run (lo que tardó `fn`).
+- **Tags**: haz clic en uno para revalidar ese prefijo. `nq` es el tag raíz y no se puede pulsar: usa Revalidate all.
+- Los **datos** como JSON resaltado, hasta los primeros 16 KB, con una marca de truncado si se pasan. **Copy** los copia al portapapeles.
+
+Si `fn` lanzó un error, el mensaje aparece encima de los datos.
+
+<Callout type="note" title="Una query aparece cuando se ha ejecutado">
+  Una query aparece cuando se ha ejecutado desde que arrancó el servidor de desarrollo. Tras reiniciar `next dev` la lista está vacía hasta que vuelvas a visitar las páginas.
+</Callout>
+
+Siguiente: [Seguridad](./security) explica qué expone el panel y qué no.

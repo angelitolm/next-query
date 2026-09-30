@@ -1,1 +1,61 @@
-# The panel
+The panel is a development tool. It lists every `query()` that has run in your app, shows how fresh each one is and revalidates any of them with one click. Try it in the [live demo](./demo).
+
+## Mount it
+
+Put it once in the root layout:
+
+```tsx title="app/layout.tsx"
+import { NextQuery } from '@angelitolm/next-query'
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        {children}
+        <NextQuery position="bottom-left" />
+      </body>
+    </html>
+  )
+}
+```
+
+`position` is `'bottom-right'` (the default) or `'bottom-left'`. Outside `next dev` it renders nothing.
+
+## The launcher
+
+A round button with the logo sits in the corner. A bubble on it counts the queries that are **stale plus those with an error**. When everything is fresh, a gradient dot shows instead. Click it to open the panel.
+
+## The header
+
+- Counts: how many queries, how many stale, how many with an error.
+- **Filter by key**: matches against the key as text, for example `products`.
+- **Sort**: Updated (most recent first, the default), Status (errors, then stale, then fresh) or Key (parents right before their children).
+- **Revalidate all**: revalidates every query, through the root tag.
+- **Reload list**: fetches the list again. It does not revalidate anything.
+- Close.
+
+## Cards
+
+Each query is a card with:
+
+- Its **key**.
+- A **status pill**: `fresh` (lime to cyan), `stale` or `error`.
+- A **freshness bar** that counts down to stale, with a label such as `6S LEFT` or `STALE 12S`. A query without a `revalidate` window shows "never stale", since it is kept until revalidated.
+- A **↻** button that revalidates that key (and everything below it).
+
+## Detail
+
+Select a card to see its detail:
+
+- A **Revalidate** button for the key.
+- Rows: Status, Revalidate (the window, or `never`), Updated, Reads / runs and Last run (how long `fn` took).
+- **Tags**: click one to revalidate that prefix. `nq` is the root tag, and it is not clickable: use Revalidate all.
+- The **data** as highlighted JSON, up to the first 16 KB, marked as truncated beyond that. **Copy** puts it on your clipboard.
+
+If `fn` threw, the error message shows above the data.
+
+<Callout type="note" title="A query appears once it has run">
+  A query shows up once it has run since the dev server started. After you restart `next dev` the list is empty until you visit the pages again.
+</Callout>
+
+Next: [Security](./security) explains what the panel exposes and what it does not.

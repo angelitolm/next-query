@@ -1,1 +1,51 @@
-# Keys and tags
+A key is an array that names a cache entry and, one segment at a time, a chain of tags that [`revalidate()`](./revalidate) targets. This page has the exact rules.
+
+## Key rules
+
+- The key is a **non-empty array**.
+- Each segment is a **non-empty string** or a **finite number**. `NaN`, `Infinity`, `''`, `null`, objects and booleans throw a `TypeError`.
+
+```ts title="Valid and invalid keys"
+query(['products'], fn)               // ok
+query(['products', 1, 'reviews'], fn) // ok
+query([], fn)                         // TypeError: key must be a non-empty array
+query(['products', ''], fn)           // TypeError: key segments must be non-empty strings or finite numbers
+query(['products', NaN], fn)          // TypeError
+```
+
+`['products', 1]` and `['products', '1']` are **different cache entries**, because the entry is keyed by the JSON of the key. They share the same tags, so revalidating either one refreshes both.
+
+## Tags
+
+Each key produces one tag per segment, plus a root tag. Segments are joined with `/`:
+
+| Key | Tags |
+|---|---|
+| `['products', 1]` | `nq`, `nq:products`, `nq:products/1` |
+| `['products', 1, 'reviews']` | `nq`, `nq:products`, `nq:products/1`, `nq:products/1/reviews` |
+
+`revalidate(key)` expires the **deepest** tag of the key, and every entry below it carries that tag. That is what makes revalidation work by prefix.
+
+The root tag `nq` is on every query. It is what **Revalidate all** in [the panel](./panel) uses.
+
+## Escaping
+
+`/` separates segments inside a tag, so it is escaped when it appears inside one: `/` becomes `%2F` and `%` becomes `%25`. This keeps keys apart that would otherwise collide:
+
+| Key | Tag |
+|---|---|
+| `['a/b']` | `nq:a%2Fb` |
+| `['a', 'b']` | `nq:a/b` |
+
+So `['a/b']` and `['a', 'b']` are unrelated, and `revalidate('a')` does not reach `['a/b']`.
+
+## Limits
+
+Next limits the tags of a cache entry, and next-query checks both limits up front and throws a `TypeError`:
+
+- **256 characters** per tag. Long segments count, and so do the `nq:` prefix and escaping.
+- **128 tags** per entry. A key makes one tag per segment plus the root, so a key can have at most **127 segments**.
+
+<Callout type="note" title="Keep keys short and structured">
+  A key like `['posts', slug]` is a name, not a payload. Put a value in the key only when it changes what `fn` returns.
+</Callout>

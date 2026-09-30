@@ -1,1 +1,73 @@
-# query
+`query()` caches the result of any server code under a key. Call it in a Server Component, a route handler or a server action, and every read with the same key shares one cache entry.
+
+## Signature
+
+```ts title="@angelitolm/next-query"
+function query<T>(key: QueryKey, fn: () => T | Promise<T>, config?: QueryConfig): Promise<T>
+
+type QueryKey = (string | number)[]
+type QueryConfig = { revalidate?: number | false }
+```
+
+```tsx title="app/products/[id]/page.tsx"
+import { query } from '@angelitolm/next-query'
+
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const product = await query(['products', id], () => db.product(id), { revalidate: 60 })
+  return <h1>{product.name}</h1>
+}
+```
+
+- `key` names the entry, and it is also what you [revalidate](./revalidate) by. The rules are in [Keys and tags](./keys-and-tags).
+- `fn` is any server code: a `fetch`, an ORM call, a file read. It runs on a cache miss.
+- `config.revalidate` is the number of seconds until the data is stale, or `false` (the default) to keep it until you revalidate it. Anything else, such as `0`, a negative number or `NaN`, throws a `TypeError`.
+
+## The result must be JSON-serializable
+
+Next stores the value with `unstable_cache`, which stores JSON. On a cache hit you get the JSON round trip of what `fn` returned: a `Date` comes back as a string, and `undefined` values, functions and class instances do not survive.
+
+```ts title="lib/data.ts"
+const row = await query(['events', 1], async () => ({ at: new Date() }))
+typeof row.at // 'string' on a cache hit, not a Date
+```
+
+Return plain data, and convert it after the read (`new Date(row.at)`).
+
+## Reuse a query with a plain function
+
+There is no query object to share. Wrap the call in a function and import that:
+
+```ts title="lib/products.ts"
+import { query } from '@angelitolm/next-query'
+
+export const getProduct = (id: string) => query(['products', id], () => db.product(id))
+```
+
+The key lives in one place, so the page that reads it and the action that revalidates it cannot drift apart.
+
+## Errors
+
+If `fn` throws, nothing is cached: the next read runs `fn` again. The error is rethrown, so it reaches your `error.tsx` as usual, and in development the panel shows it on the card with the `error` status.
+
+`notFound()` and `redirect()` inside `fn` are control flow, not failures. They pass through untouched and are not recorded as errors.
+
+```tsx title="app/products/[id]/page.tsx"
+const product = await query(['products', id], async () => {
+  const row = await db.product(id)
+  if (!row) notFound() // reaches Next's not-found page, not the panel's error list
+  return row
+})
+```
+
+## Stale-while-revalidate
+
+With `revalidate: 60`, the data is fresh for 60 seconds. The first read after that serves the old data and refetches in the background, so the request after it gets the new data. That is how `unstable_cache` works, and `query()` does not change it.
+
+<Callout type="tip" title="Want the new data right away?">
+  Call [`revalidate()`](./revalidate) from a server action. It expires the entry immediately instead of waiting for the window.
+</Callout>
+
+## How it works
+
+`query()` wraps `fn` in `unstable_cache` with the key parts `['next-query', <JSON of the key>]`, and with the tags derived from the key (see [Keys and tags](./keys-and-tags)). Nothing else is stored, and `'use cache'` is not used. Because the JSON of the key is part of the cache key, `['products', 1]` and `['products', '1']` are different entries.

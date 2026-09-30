@@ -54,7 +54,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   La [demo en vivo](./demo) ejecuta el panel real con queries simuladas: revalida una tarjeta, revalida un prefijo entero, mira cómo las barras cuentan hacia atrás.
 </Callout>
 
-<Callout type="note" title="Solo desarrollo, en el caso del panel">
+<Callout type="note" title="El panel, solo en desarrollo">
   `<NextQuery />` no renderiza nada fuera de desarrollo, y sus server actions se niegan a ejecutarse. `query()` y `revalidate()` son la propia librería: se ejecutan en todas partes, en desarrollo y en producción.
 </Callout>
 

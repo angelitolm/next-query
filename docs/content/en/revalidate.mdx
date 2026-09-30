@@ -1,1 +1,62 @@
-# revalidate
+`revalidate()` expires the cached data under a key, so the next read runs `fn` again.
+
+## Signature
+
+```ts title="@angelitolm/next-query"
+function revalidate(key: QueryKey | string): void
+```
+
+A string is shorthand for a one-segment key: `revalidate('products')` is `revalidate(['products'])`.
+
+```ts title="app/actions.ts"
+'use server'
+import { revalidate } from '@angelitolm/next-query'
+
+export async function renameProduct(id: string, name: string) {
+  await db.rename(id, name)
+  revalidate(['products', id]) // this product, and anything below it
+}
+```
+
+## Prefix semantics
+
+A key covers itself and every key that starts with it.
+
+| Call | Revalidates |
+|---|---|
+| `revalidate('products')` | `['products']`, `['products', 1]`, `['products', 1, 'reviews']` |
+| `revalidate(['products', 1])` | `['products', 1]` and below, not `['products']` |
+
+Design your keys from general to specific (`['products', id, 'reviews']`) and one call can refresh a whole branch. See [Keys and tags](./keys-and-tags) for how this maps to tags.
+
+## Where to call it
+
+Call it from **server actions** and **route handlers**, after you have changed the data. Next does not allow revalidating while a page renders.
+
+```ts title="app/api/products/route.ts"
+import { revalidate } from '@angelitolm/next-query'
+
+export async function POST(request: Request) {
+  await db.create(await request.json())
+  revalidate('products')
+  return Response.json({ ok: true })
+}
+```
+
+An invalid key throws the same `TypeError` as `query()`.
+
+## Under the hood
+
+`revalidate()` calls `revalidateTag(<deepest tag of the key>, { expire: 0 })`. `expire: 0` expires the entry right away on Next 16; on Next 15, `revalidateTag` takes no second argument and ignores it. The same code works on both.
+
+## The name clash with `export const revalidate`
+
+A page can export a route segment option called `revalidate`. If you import `revalidate` from next-query into the same file, the two collide (`the name 'revalidate' is already declared`). Rename the import:
+
+```tsx title="app/products/page.tsx"
+import { revalidate as revalidateQuery } from '@angelitolm/next-query'
+
+export const revalidate = 60
+```
+
+The segment option and the library function are unrelated. In files without that export, the plain name is fine.
