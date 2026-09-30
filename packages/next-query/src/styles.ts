@@ -8,6 +8,10 @@ export const css = /* css */ `
   --nq-primary: linear-gradient(90deg, var(--nq-from), var(--nq-to));
   --nq-on-primary: #1a0f05;
   --nq-glow: 0 0 18px rgba(255, 160, 60, .45);
+  /* Fresh uses next-toolbar's lime → cyan so it reads apart from the orange chrome. */
+  --nq-fresh: linear-gradient(90deg, #c6ff5c, #5ef5e0);
+  --nq-on-fresh: #0b0f0c;
+  --nq-fresh-glow: 0 0 8px rgba(126, 250, 190, .45);
   --nq-surface: linear-gradient(180deg, #38383b 0%, #1f1f21 100%);
   --nq-surface-flat: #1c1c1e;
   --nq-card: rgba(0, 0, 0, .24);
@@ -100,7 +104,7 @@ code { font: 12px var(--nq-mono); }
   animation: nq-pop .25s cubic-bezier(.2, .8, .2, 1);
 }
 .launcher:hover { transform: scale(1.06); box-shadow: var(--nq-shadow), var(--nq-glow); }
-.launcher .dot { position: absolute; top: 3px; right: 3px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--nq-ring); background: var(--nq-primary); box-shadow: var(--nq-glow); }
+.launcher .dot { position: absolute; top: 3px; right: 3px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--nq-ring); background: var(--nq-fresh); box-shadow: var(--nq-fresh-glow); }
 .launcher .bubble {
   position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px;
   display: grid; place-items: center; font: 700 11px var(--nq-font); border: 2px solid var(--nq-ring);
@@ -168,12 +172,12 @@ header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding:
 .track { flex: 1; height: 4px; border-radius: 2px; background: var(--nq-raised); overflow: hidden; }
 .track.stale { background: var(--nq-warn-bg); }
 /* Counts down: full when just loaded, empty once stale. */
-.fill { display: block; height: 100%; border-radius: 2px; background: var(--nq-primary); box-shadow: 0 0 8px rgba(255, 160, 60, .4); transition: width 1s linear; }
+.fill { display: block; height: 100%; border-radius: 2px; background: var(--nq-fresh); box-shadow: var(--nq-fresh-glow); transition: width 1s linear; }
 .fill.error { background: var(--nq-err); box-shadow: none; }
 .meter-label { flex-shrink: 0; color: var(--nq-dim); font: 600 10px var(--nq-mono); letter-spacing: .08em; text-transform: uppercase; }
 
 .pill { flex-shrink: 0; padding: 3px 7px; border-radius: 5px; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
-.pill.fresh { background: var(--nq-primary); color: var(--nq-on-primary); }
+.pill.fresh { background: var(--nq-fresh); color: var(--nq-on-fresh); }
 .pill.stale { background: var(--nq-warn-bg); color: var(--nq-warn); }
 .pill.error { background: var(--nq-err-bg); color: var(--nq-err); }
 
