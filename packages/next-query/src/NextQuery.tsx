@@ -1,10 +1,10 @@
 'use client'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { createPortal } from 'react-dom'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { getQueries, revalidateAll, revalidateQuery } from './actions.js'
-import { ago, freshness, keyLabel, prefixes, ROOT_TAG, sortEntries, status, type Entry, type QueryKey, type Sort, type Status } from './core.js'
-import { CloseCircle, Refresh2, SearchNormal1 } from './icons.js'
+import { ago, freshness, jsonTokens, keyLabel, prefixes, ROOT_TAG, sortEntries, status, type Entry, type QueryKey, type Sort, type Status } from './core.js'
+import { CloseCircle, Copy, CopySuccess, Refresh2, SearchNormal1 } from './icons.js'
 import { Logo } from './Logo.js'
 import { css } from './styles.js'
 
@@ -25,6 +25,8 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 function Panel({ position = 'bottom-right' }: NextQueryProps) {
   const pathname = usePathname()
+  const router = useRouter()
+  const [refreshing, startRefresh] = useTransition()
   const [root, setRoot] = useState<ShadowRoot | null>(null)
   const [open, setOpen] = useState(false)
   const [entries, setEntries] = useState<Entry[]>([])
@@ -58,26 +60,34 @@ function Panel({ position = 'bottom-right' }: NextQueryProps) {
     load()
   }, [load, pathname])
 
-  // Keep "12s ago" and fresh/stale current while the panel is open.
+  // Keep "12s ago", the bars and fresh/stale current: every second while open, and every 5s
+  // while closed so the launcher's stale count moves too.
   useEffect(() => {
-    if (!open) return
-    const id = setInterval(() => setNow(Date.now()), 1000)
+    const id = setInterval(() => setNow(Date.now()), open ? 1000 : 5000)
     return () => clearInterval(id)
   }, [open])
 
-  // A server action that calls revalidateTag makes Next re-render the current page in the same
-  // response, so the page is fresh by the time the action returns; then reload the list.
+  // An action's result arrives before the page it re-renders has read its queries, so a load()
+  // right after it would snapshot the registry too early. Refresh the route in a transition
+  // instead, and load once that transition ends (refreshing goes true -> false).
+  const wasRefreshing = useRef(false)
+  useEffect(() => {
+    if (wasRefreshing.current && !refreshing) load()
+    wasRefreshing.current = refreshing
+  }, [refreshing, load])
+
   const act = async (run: () => Promise<void>) => {
     setBusy(true)
     try {
       await run()
-      await load()
+      startRefresh(() => router.refresh())
     } catch (e) {
       setError(message(e))
     } finally {
       setBusy(false)
     }
   }
+  const pending = busy || refreshing
 
   if (!root) return null
 
@@ -120,10 +130,10 @@ function Panel({ position = 'bottom-right' }: NextQueryProps) {
               ))}
             </div>
             <span className="spacer" />
-            <button className="text-btn primary" onClick={() => act(revalidateAll)} disabled={busy} title="revalidate every query">
+            <button className="text-btn primary" onClick={() => act(revalidateAll)} disabled={pending} title="revalidate every query">
               Revalidate all
             </button>
-            <button className="icon-btn" onClick={load} disabled={busy} title="Reload the list" aria-label="Reload the list">
+            <button className="icon-btn" onClick={load} disabled={pending} title="Reload the list" aria-label="Reload the list">
               <Refresh2 size={18} />
             </button>
             <button className="icon-btn" onClick={() => setOpen(false)} title="Close" aria-label="Close next-query">
@@ -140,7 +150,7 @@ function Panel({ position = 'bottom-right' }: NextQueryProps) {
                 </li>
               ))}
             </ul>
-            {current && <Detail row={current} now={now} busy={busy} onRevalidate={(key) => act(() => revalidateQuery(key))} />}
+            {current && <Detail row={current} now={now} busy={pending} onRevalidate={(key) => act(() => revalidateQuery(key))} onError={setError} />}
           </div>
         </section>
       ) : (
@@ -178,7 +188,7 @@ function Card({ row, now, selected, onSelect }: { row: Row; now: number; selecte
       </span>
       <span className="meter">
         {f && (
-          <span className="track">
+          <span className={`track ${row.status}`}>
             <span className={`fill ${row.status}`} style={{ width: `${f.ratio * 100}%` }} />
           </span>
         )}
@@ -188,7 +198,9 @@ function Card({ row, now, selected, onSelect }: { row: Row; now: number; selecte
   )
 }
 
-function Detail({ row, now, busy, onRevalidate }: { row: Row; now: number; busy: boolean; onRevalidate: (key: QueryKey) => void }) {
+type DetailProps = { row: Row; now: number; busy: boolean; onRevalidate: (key: QueryKey) => void; onError: (message: string) => void }
+
+function Detail({ row, now, busy, onRevalidate, onError }: DetailProps) {
   // tags[0] is the root tag; tags[i] is the tag of prefixes(key)[i - 1].
   const keyPrefixes = prefixes(row.key)
   return (
@@ -230,7 +242,35 @@ function Detail({ row, now, busy, onRevalidate }: { row: Row; now: number; busy:
         )}
       </div>
       {row.error && <pre className="err">{row.error}</pre>}
-      <pre>{row.preview ?? '—'}</pre>
+      {row.preview === undefined ? <pre>—</pre> : <DataView text={row.preview} onError={onError} />}
+    </div>
+  )
+}
+
+function DataView({ text, onError }: { text: string; onError: (message: string) => void }) {
+  const [copied, setCopied] = useState(false)
+  useEffect(() => {
+    if (!copied) return
+    const id = setTimeout(() => setCopied(false), 1500)
+    return () => clearTimeout(id)
+  }, [copied])
+  const copy = () =>
+    navigator.clipboard.writeText(text).then(
+      () => setCopied(true),
+      (e) => onError(`Copy failed: ${message(e)}`),
+    )
+  return (
+    <div className="data">
+      <div className="data-tools">
+        {/more chars\)$/.test(text) && <span className="data-note">truncated</span>}
+        <button className="icon-btn copy" onClick={copy} aria-label="Copy data" title={copied ? 'Copied' : 'Copy data'}>
+          {copied ? <CopySuccess size={16} /> : <Copy size={16} />}
+          {copied && <span>Copied</span>}
+        </button>
+      </div>
+      <pre className="json">
+        {jsonTokens(text).map((t, i) => (t.kind === 'plain' ? t.text : <span key={i} className={`j-${t.kind}`}>{t.text}</span>))}
+      </pre>
     </div>
   )
 }

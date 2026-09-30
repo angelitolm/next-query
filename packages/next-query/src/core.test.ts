@@ -1,7 +1,7 @@
 import { test, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  ago, freshness, hashKey, keyLabel, keyToTags, normalizeKey, prefixes, preview, recordError, recordRead, recordRun, recordSuccess,
+  ago, freshness, hashKey, jsonTokens, keyLabel, keyToTags, normalizeKey, prefixes, preview, recordError, recordRead, recordRun, recordSuccess,
   registry, shortDuration, snapshot, sortEntries, status, validateKey, validateRevalidate, type Entry,
 } from './core.ts'
 
@@ -130,10 +130,39 @@ test('shortDuration uses whole units', () => {
   assert.equal(shortDuration(2 * 3_600_000), '2h')
 })
 
-test('freshness: ratio toward stale and a label', () => {
-  assert.deepEqual(freshness({ revalidate: 10, dataUpdatedAt: 0 }, 4_000), { ratio: 0.4, label: '6s left' })
-  assert.deepEqual(freshness({ revalidate: 10, dataUpdatedAt: 0 }, 10_000), { ratio: 1, label: '0s left' })
-  assert.deepEqual(freshness({ revalidate: 10, dataUpdatedAt: 0 }, 22_000), { ratio: 1, label: 'stale 12s' })
+test('freshness: remaining fraction before stale and a label', () => {
+  assert.deepEqual(freshness({ revalidate: 10, dataUpdatedAt: 0 }, 0), { ratio: 1, label: '10s left' })
+  assert.deepEqual(freshness({ revalidate: 10, dataUpdatedAt: 0 }, 4_000), { ratio: 0.6, label: '6s left' })
+  assert.deepEqual(freshness({ revalidate: 10, dataUpdatedAt: 0 }, 10_000), { ratio: 0, label: '0s left' })
+  assert.deepEqual(freshness({ revalidate: 10, dataUpdatedAt: 0 }, 22_000), { ratio: 0, label: 'stale 12s' })
   assert.equal(freshness({ revalidate: false, dataUpdatedAt: 0 }, 5_000), null)
   assert.equal(freshness({ revalidate: 10 }, 5_000), null)
+})
+
+test('sortEntries by key puts a parent before its children', () => {
+  const keys: (string | number)[][] = [['stats'], ['products', 2], ['products', 1], ['products']]
+  const sorted = sortEntries(keys.map((k) => entry(k, {})), 'key', 0).map((e) => e.key)
+  assert.deepEqual(sorted, [['products'], ['products', 1], ['products', 2], ['stats']])
+})
+
+test('jsonTokens is lossless on a preview', () => {
+  const text = preview({ a: [1, -2.5e3, 'x"y'], b: null, c: true })
+  assert.equal(jsonTokens(text).map((t) => t.text).join(''), text)
+})
+
+test('jsonTokens kinds', () => {
+  const tokens = jsonTokens('{"a": 1, "b": "s", "c": [true, null]}').filter((t) => t.kind !== 'plain')
+  assert.deepEqual(tokens.map((t) => [t.kind, t.text]), [
+    ['punct', '{'], ['key', '"a"'], ['punct', ':'], ['number', '1'], ['punct', ','],
+    ['key', '"b"'], ['punct', ':'], ['string', '"s"'], ['punct', ','],
+    ['key', '"c"'], ['punct', ':'], ['punct', '['], ['literal', 'true'], ['punct', ','], ['literal', 'null'], ['punct', ']'], ['punct', '}'],
+  ])
+})
+
+test('jsonTokens round-trips a truncated preview without throwing', () => {
+  const text = preview({ items: Array.from({ length: 50 }, (_, i) => ({ id: i, name: `item "${i}"` })) }, 300)
+  assert.match(text, /more chars\)$/)
+  assert.equal(jsonTokens(text).map((t) => t.text).join(''), text)
+  const broken = '{"a": "unterminated\n  x'
+  assert.equal(jsonTokens(broken).map((t) => t.text).join(''), broken)
 })

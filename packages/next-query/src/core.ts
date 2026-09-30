@@ -71,7 +71,7 @@ export function status(entry: Pick<Entry, 'error' | 'revalidate' | 'dataUpdatedA
   return 'fresh'
 }
 
-export function preview(data: unknown, max = 2048): string {
+export function preview(data: unknown, max = 16_384): string {
   let text: string
   try {
     text = JSON.stringify(data, null, 2) ?? String(data)
@@ -79,6 +79,25 @@ export function preview(data: unknown, max = 2048): string {
     text = String(data)
   }
   return text.length > max ? `${text.slice(0, max)}\n… (${text.length - max} more chars)` : text
+}
+
+export type JsonToken = { kind: 'key' | 'string' | 'number' | 'literal' | 'punct' | 'plain'; text: string }
+
+// Tokens of preview() text for the panel's JSON viewer. Lossless (the texts join back to the input)
+// and forgiving: truncated or non-JSON text just yields more 'plain' tokens.
+const JSON_TOKEN = /("(?:[^"\\\n]|\\.)*")(?=\s*:)|("(?:[^"\\\n]|\\.)*")|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|\b(true|false|null)\b|([{}[\],:])/g
+const TOKEN_KINDS = ['key', 'string', 'number', 'literal', 'punct'] as const
+
+export function jsonTokens(text: string): JsonToken[] {
+  const tokens: JsonToken[] = []
+  let last = 0
+  for (const m of text.matchAll(JSON_TOKEN)) {
+    if (m.index > last) tokens.push({ kind: 'plain', text: text.slice(last, m.index) })
+    tokens.push({ kind: TOKEN_KINDS[m.slice(1).findIndex((g) => g !== undefined)], text: m[0] })
+    last = m.index + m[0].length
+  }
+  if (last < text.length) tokens.push({ kind: 'plain', text: text.slice(last) })
+  return tokens
 }
 
 export function shortDuration(ms: number): string {
@@ -90,14 +109,15 @@ export function shortDuration(ms: number): string {
 
 export const ago = (ms: number): string => (ms < 1000 ? 'just now' : `${shortDuration(ms)} ago`)
 
-// How far an entry is toward stale, for the panel's bar. null: never stale, or never loaded.
+// Time left before an entry goes stale, for the panel's countdown bar: ratio is the remaining
+// fraction (1 just loaded, 0 once stale). null: never stale, or never loaded.
 export function freshness(entry: Pick<Entry, 'revalidate' | 'dataUpdatedAt'>, now: number): { ratio: number; label: string } | null {
   if (entry.revalidate === false || entry.dataUpdatedAt === undefined) return null
   const age = now - entry.dataUpdatedAt
   const window = entry.revalidate * 1000
   return {
-    // Clamped at 0 too: the server clock can run slightly ahead of the browser's.
-    ratio: Math.min(Math.max(age / window, 0), 1),
+    // Clamped at 1 too: the server clock can run slightly ahead of the browser's.
+    ratio: Math.min(Math.max(1 - age / window, 0), 1),
     label: age <= window ? `${shortDuration(window - age)} left` : `stale ${shortDuration(age - window)}`,
   }
 }
@@ -108,9 +128,19 @@ export function sortEntries<T extends Entry>(entries: T[], sort: Sort, now: numb
   const by: Record<Sort, (a: T, b: T) => number> = {
     updated: (a, b) => (b.dataUpdatedAt ?? 0) - (a.dataUpdatedAt ?? 0),
     status: (a, b) => STATUS_ORDER[status(a, now)] - STATUS_ORDER[status(b, now)],
-    key: (a, b) => keyLabel(a.key).localeCompare(keyLabel(b.key)),
+    key: (a, b) => compareKeys(a.key, b.key),
   }
   return [...entries].sort(by[sort])
+}
+
+// Segment by segment, so a parent sorts right before its children; numbers compare numerically.
+function compareKeys(a: QueryKey, b: QueryKey): number {
+  for (let i = 0; i < Math.min(a.length, b.length); i++) {
+    const [x, y] = [a[i], b[i]]
+    const d = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y))
+    if (d !== 0) return d
+  }
+  return a.length - b.length
 }
 
 // Dev-only registry. On globalThis so HMR re-evaluating this module keeps it.
