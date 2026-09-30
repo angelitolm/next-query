@@ -22,6 +22,9 @@ export type Entry = {
   lastDurationMs?: number
   error?: string
   preview?: string
+  /** fetch only: the cached response's HTTP status and headers (set-cookie redacted). */
+  httpStatus?: number
+  headers?: Record<string, string>
   lastReadAt?: number
   /** Dev panel: a tag of this entry was revalidated at this time and the data hasn't been re-read since. */
   revalidatedAt?: number
@@ -248,13 +251,16 @@ const NEVER_EXPIRES = 31_536_000 // Next: a year or more means never.
  * (next/dist/server/web/spec-extension/unstable-cache.js, identical in Next 15.0, 15.5 and 16.3): that is how it is told apart.
  */
 export function parseFetchCacheFile(json: unknown, mtimeMs: number): { entry?: Entry; untagged?: string } {
-  const file = json as { kind?: unknown; data?: { url?: unknown; body?: unknown; headers?: unknown }; tags?: unknown; revalidate?: unknown } | null
+  const file = json as { kind?: unknown; data?: { url?: unknown; body?: unknown; headers?: unknown; status?: unknown }; tags?: unknown; revalidate?: unknown } | null
   const url = file?.data?.url
   if (file?.kind !== 'FETCH' || typeof url !== 'string' || url === '') return {}
   const tags = Array.isArray(file.tags) ? file.tags.filter((t): t is string => typeof t === 'string' && t !== '' && t.length <= MAX_TAG_LENGTH && !t.startsWith('_N_T_')) : []
   if (tags.length === 0) return { untagged: url }
   const revalidate = typeof file.revalidate === 'number' && file.revalidate > 0 && file.revalidate < NEVER_EXPIRES ? file.revalidate : false
   const entry: Entry = { kind: 'fetch', id: `fetch:${url}`, label: url, tags, revalidate, dataUpdatedAt: mtimeMs }
+  if (typeof file.data?.status === 'number') entry.httpStatus = file.data.status
+  const headers = responseHeaders(file.data?.headers)
+  if (headers) entry.headers = headers
   try {
     const bytes = Uint8Array.from(atob(String(file.data?.body ?? '')), (c) => c.charCodeAt(0))
     const text = new TextDecoder().decode(bytes)
@@ -264,6 +270,18 @@ export function parseFetchCacheFile(json: unknown, mtimeMs: number): { entry?: E
     // no preview
   }
   return { entry }
+}
+
+// The request never reaches the cache file (only a hash of it, as the key): response headers are all there is.
+// set-cookie can carry a session, so its value is hidden.
+export function responseHeaders(raw: unknown): Record<string, string> | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const out: Record<string, string> = {}
+  for (const [name, value] of Object.entries(raw).sort(([a], [b]) => a.localeCompare(b))) {
+    if (typeof value !== 'string') continue
+    out[name] = name.toLowerCase() === 'set-cookie' ? '[redacted]' : value
+  }
+  return Object.keys(out).length ? out : undefined
 }
 
 export function chunk<T>(items: T[], size: number): T[][] {

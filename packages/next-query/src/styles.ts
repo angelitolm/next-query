@@ -211,6 +211,14 @@ header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding:
 .tag-btn:hover { background: var(--nq-hover); border-color: color-mix(in srgb, var(--nq-accent) 45%, var(--nq-border)); }
 .tag-btn:hover .tag-ico, .tag-btn:focus-visible .tag-ico { opacity: 1; }
 pre { margin: 0 0 8px; padding: 10px 12px; border-radius: 8px; background: var(--nq-raised); overflow: auto; white-space: pre-wrap; word-break: break-word; font: 11px/1.5 var(--nq-mono); }
+.http { font-family: var(--nq-mono); }
+.http.bad { color: var(--nq-err); }
+.headers { margin: 6px 0; padding: 0 10px; }
+.headers summary { cursor: pointer; color: var(--nq-dim); padding: 4px 0; }
+.headers dl { margin: 4px 0 0; font-family: var(--nq-mono); font-size: 12px; }
+.headers dl > div { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 12px; padding: 3px 0; border-top: 1px solid var(--nq-border); }
+.headers dt { color: var(--nq-dim); overflow-wrap: anywhere; }
+.headers dd { margin: 0; overflow-wrap: anywhere; }
 .data { position: relative; }
 .data-tools { position: absolute; top: 6px; right: 6px; display: flex; align-items: center; gap: 6px; }
 .data-note { color: var(--nq-dim); font: 600 10px var(--nq-mono); letter-spacing: .08em; text-transform: uppercase; }

@@ -246,7 +246,15 @@ test('parseFetchCacheFile: a tagged JSON fetch', () => {
   assert.deepEqual(entry, {
     kind: 'fetch', id: 'fetch:http://localhost:3000/api/products', label: 'http://localhost:3000/api/products',
     tags: ['products'], revalidate: 60, dataUpdatedAt: 1234, preview: '{\n  "a": 1\n}',
+    httpStatus: 200, headers: { 'content-type': 'application/json' },
   })
+})
+
+test('parseFetchCacheFile: response headers sorted, set-cookie redacted, non-strings dropped', () => {
+  const { entry } = parseFetchCacheFile(cacheFile({}, { status: 404, headers: { 'x-b': '2', 'Set-Cookie': 'sid=secret', 'x-a': '1', 'x-n': 5 } }), 1)
+  assert.equal(entry!.httpStatus, 404)
+  assert.deepEqual(Object.entries(entry!.headers!), [['Set-Cookie', '[redacted]'], ['x-a', '1'], ['x-b', '2']])
+  assert.equal(parseFetchCacheFile(cacheFile({}, { headers: {}, status: undefined }), 1).entry!.headers, undefined)
 })
 
 test('parseFetchCacheFile: decodes UTF-8 and keeps a text body as text', () => {

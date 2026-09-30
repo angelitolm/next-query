@@ -60,7 +60,7 @@ Justo después de revalidar, los datos todavía no se han vuelto a pedir: Next l
 Selecciona una tarjeta para ver su detalle:
 
 - Un botón **Revalidate**, igual que el ↻ de la tarjeta.
-- Para un fetch: URL, Status, Revalidate (la ventana, o `never`), Updated (cuándo lo guardó Next) y Tags.
+- Para un fetch: URL, Status, HTTP (el código de estado de la respuesta), Revalidate (la ventana, o `never`), Updated (cuándo lo guardó Next), Tags y **Response headers** (plegados; los valores de `set-cookie` se ocultan). Los headers y el body del propio request no se muestran: la caché de Next no los guarda, solo un hash de ellos como clave de caché.
 - Para una query: Status, Revalidate, Updated, Reads / runs y Last run (lo que tardó `fn`), y Tags.
 - **Tags**: cada tag es un chip, y al hacer clic en uno se revalida ese tag. Haz clic en `products` y se refresca cada entrada que lo lleve.
 - La **respuesta** de un fetch, o los **datos** de una query, como JSON resaltado, hasta los primeros 16 KB, con una marca de truncado si se pasan. Una respuesta que no es JSON se muestra como texto. **Copy** la copia al portapapeles.
