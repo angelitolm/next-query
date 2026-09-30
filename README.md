@@ -1,8 +1,19 @@
-# next-query
+<p align="center"><img src="./docs/public/logo.svg" width="96" height="96" alt="next-query logo"></p>
 
-Tag your native `fetch` in the Next.js App Router and revalidate it by tag. In development, a panel lists every tagged fetch in your app and revalidates any of them with one click.
+<h1 align="center">next-query</h1>
 
-Docs and live demo: https://next-query.angellm.dev
+<p align="center">Tag your native <code>fetch</code> in the Next.js App Router and revalidate it by tag. In development, a panel lists every tagged fetch in your app and revalidates any of them with one click.</p>
+
+<p align="center">
+  <a href="https://github.com/angelitolm/next-query/actions/workflows/ci.yml"><img src="https://github.com/angelitolm/next-query/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://www.npmjs.com/package/@angelitolm/next-query#provenance"><img src="https://img.shields.io/badge/npm-provenance-2ea44f?logo=npm" alt="npm provenance"></a>
+</p>
+
+<p align="center"><a href="https://next-query.angellm.dev/en/demo"><img src="./docs/public/demo.gif" width="880" alt="next-query demo: opening the panel, revalidating one product's fetch by its card, revalidating every product through the products tag, freshness bars counting down and copying the JSON response"></a></p>
+
+<p align="center"><a href="https://next-query.angellm.dev">Docs</a> · <a href="https://next-query.angellm.dev/en/demo">Live demo</a></p>
+
+---
 
 ```bash
 pnpm add @angelitolm/next-query
