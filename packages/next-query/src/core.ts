@@ -245,7 +245,7 @@ export function parseFetchCacheFile(json: unknown, mtimeMs: number): { entry?: E
   const file = json as { kind?: unknown; data?: { url?: unknown; body?: unknown; headers?: unknown }; tags?: unknown; revalidate?: unknown } | null
   const url = file?.data?.url
   if (file?.kind !== 'FETCH' || typeof url !== 'string' || url === '') return {}
-  const tags = Array.isArray(file.tags) ? file.tags.filter((t): t is string => typeof t === 'string' && !t.startsWith('_N_T_')) : []
+  const tags = Array.isArray(file.tags) ? file.tags.filter((t): t is string => typeof t === 'string' && t !== '' && t.length <= MAX_TAG_LENGTH && !t.startsWith('_N_T_')) : []
   if (tags.length === 0) return { untagged: true }
   const revalidate = typeof file.revalidate === 'number' && file.revalidate > 0 && file.revalidate < NEVER_EXPIRES ? file.revalidate : false
   const entry: Entry = { kind: 'fetch', id: `fetch:${url}`, label: url, tags, revalidate, dataUpdatedAt: mtimeMs }

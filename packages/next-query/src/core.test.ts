@@ -284,3 +284,22 @@ test('newestPerUrl keeps the newest entry of each URL', () => {
   const out = newestPerUrl([f('a', 1), f('b', 5), f('a', 3), f('a', 2)])
   assert.deepEqual(out.map((e) => [e.label, e.dataUpdatedAt]).sort(), [['a', 3], ['b', 5]])
 })
+
+test('tags escape a segment with both % and /', () => {
+  assert.deepEqual(tags(['a%/b']), ['a%25%2Fb'])
+})
+
+test('tag limits are inclusive: 128 segments and 256 chars pass', () => {
+  assert.equal(tags(Array.from({ length: 128 }, () => 1)).length, 128)
+  assert.equal(tagFor('x'.repeat(256)).length, 256)
+  assert.deepEqual(tags(['x'.repeat(256)]), ['x'.repeat(256)])
+  assert.throws(() => tags(['x'.repeat(257)]), TypeError)
+  assert.throws(() => tagFor('x'.repeat(257)), TypeError)
+})
+
+test('parseFetchCacheFile: multibyte JSON body and unusable tags dropped', () => {
+  const { entry } = parseFetchCacheFile(cacheFile({ tags: ['ok', '', 'x'.repeat(257), 7, '_N_T_/a'] }, { body: b64('{"n":"héllo ✓ 日本"}') }), 1)
+  assert.equal(entry!.preview, JSON.stringify({ n: 'héllo ✓ 日本' }, null, 2))
+  assert.deepEqual(entry!.tags, ['ok'])
+  assert.deepEqual(parseFetchCacheFile(cacheFile({ tags: ['', 'x'.repeat(257)] }), 1), { untagged: true })
+})

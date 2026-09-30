@@ -167,6 +167,10 @@ header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding:
 .card:hover .reval, .card:focus-within .reval, .card.selected .reval { opacity: 1; }
 .icon-btn.reval:disabled { color: var(--nq-dim); }
 @media (hover: none) { .icon-btn.reval { opacity: 1; } }
+.kind { flex-shrink: 0; padding: 2px 6px; border-radius: 5px; font: 700 9px var(--nq-mono); letter-spacing: .08em; text-transform: uppercase; background: var(--nq-raised); color: var(--nq-dim); }
+.kind.fetch { color: var(--nq-accent); }
+.row-url { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--nq-mono); }
+.empty code { font-family: var(--nq-mono); }
 .card-top code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--nq-text); }
 .meter { display: flex; align-items: center; gap: 10px; }
 .track { flex: 1; height: 4px; border-radius: 2px; background: var(--nq-raised); overflow: hidden; }

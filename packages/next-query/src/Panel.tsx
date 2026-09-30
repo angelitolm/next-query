@@ -2,17 +2,33 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { createPortal } from 'react-dom'
 import { usePathname, useRouter } from 'next/navigation'
-import { ago, freshness, jsonTokens, keyLabel, prefixes, sortEntries, status, type Entry, type QueryKey, type Sort, type Status } from './core.js'
+import { ago, freshness, jsonTokens, sortEntries, status, type Entry, type Sort, type Status } from './core.js'
 import { CloseCircle, Copy, CopySuccess, Refresh2, SearchNormal1, Clock, Activity, Key, Timer1, Repeat, Flash, Hashtag } from './icons.js'
 import { Logo } from './Logo.js'
 import { css } from './styles.js'
 
 /** Where the panel gets its data and sends its actions: server actions for NextQuery, memory for the demo. */
-export type Source = { getQueries(): Promise<Entry[]>; revalidateQuery(key: QueryKey): Promise<void>; revalidateAll(): Promise<void> }
+export type Source = { getEntries(): Promise<{ entries: Entry[]; untagged: number }>; revalidateTags(tags: string[]): Promise<void> }
 export type PanelProps = { source: Source; live: boolean; position?: 'bottom-right' | 'bottom-left'; defaultOpen?: boolean; mode?: 'floating' | 'inline' }
 
 type Row = Entry & { status: Status }
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e))
+
+// What a card's revalidate button expires: a query's deepest tag, every tag of a fetch.
+const cardTags = (e: Entry) => (e.kind === 'query' ? e.tags.slice(-1) : e.tags)
+
+// 'http://localhost:3000/api/products?x=1' -> 'localhost:3000/api/products?x=1', cut in the middle when long.
+function shortUrl(url: string, max = 44): string {
+  let text = url
+  try {
+    const u = new URL(url)
+    text = u.host + u.pathname + u.search
+  } catch {}
+  if (text.length <= max) return text
+  const keep = max - 1
+  return `${text.slice(0, Math.ceil(keep / 2))}…${text.slice(-Math.floor(keep / 2))}`
+}
+const display = (e: Entry) => (e.kind === 'fetch' ? shortUrl(e.label) : e.label)
 
 export function Panel({ source, live, position = 'bottom-right', defaultOpen = false, mode = 'floating' }: PanelProps) {
   const inline = mode === 'inline'
@@ -25,6 +41,7 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
   const [open, setOpen] = useState(defaultOpen)
   const isOpen = inline || open
   const [entries, setEntries] = useState<Entry[]>([])
+  const [untagged, setUntagged] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)
@@ -46,7 +63,9 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
 
   const load = useCallback(async () => {
     try {
-      setEntries((await source.getQueries()).filter((e) => e.key)) // ponytail: query entries only until Task 2 lists fetches
+      const data = await source.getEntries()
+      setEntries(data.entries)
+      setUntagged(data.untagged)
       setError(null)
     } catch (e) {
       setError(message(e))
@@ -88,7 +107,7 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
     }
   }
   const pending = busy || refreshing
-  const revalidateKey = (key: QueryKey) => act(() => source.revalidateQuery(key))
+  const revalidate = (tags: string[]) => act(() => source.revalidateTags(tags))
 
   if (!root) return inline ? <div ref={setSlot} data-next-query data-inline /> : null
 
@@ -96,10 +115,10 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
   const stale = rows.filter((r) => r.status === 'stale').length
   const failed = rows.filter((r) => r.status === 'error').length
   const needle = filter.trim().toLowerCase()
-  const shown = sortEntries(rows.filter((r) => keyLabel(r.key!).toLowerCase().includes(needle)), sort, now)
+  const shown = sortEntries(rows.filter((r) => r.label.toLowerCase().includes(needle) || r.tags.some((t) => t.toLowerCase().includes(needle))), sort, now)
   const current = shown.find((r) => r.id === selected) ?? shown[0]
 
-  const counts = `${entries.length} ${entries.length === 1 ? 'query' : 'queries'}${stale ? `, ${stale} stale` : ''}${failed ? `, ${failed} ${failed === 1 ? 'error' : 'errors'}` : ''}`
+  const counts = `${entries.length} ${entries.length === 1 ? 'entry' : 'entries'}${stale ? `, ${stale} stale` : ''}${failed ? `, ${failed} ${failed === 1 ? 'error' : 'errors'}` : ''}`
   const corner = position === 'bottom-left' ? ' left' : ''
 
   const content = (
@@ -115,7 +134,7 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
               next-query
             </span>
             <span className="chips">
-              <span className="chip">{entries.length} {entries.length === 1 ? 'query' : 'queries'}</span>
+              <span className="chip">{entries.length} {entries.length === 1 ? 'entry' : 'entries'}</span>
               {stale > 0 && <span className="chip warn">{stale} stale</span>}
               {failed > 0 && <span className="chip err">{failed} {failed === 1 ? 'error' : 'errors'}</span>}
             </span>
@@ -132,7 +151,7 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
               ))}
             </div>
             <span className="spacer" />
-            <button className="text-btn primary" onClick={() => act(source.revalidateAll)} disabled={pending} title="revalidate every query">
+            <button className="text-btn primary" onClick={() => revalidate([...new Set(entries.flatMap((e) => e.tags))])} disabled={pending || entries.length === 0} title="revalidate every tag in the list">
               Revalidate all
             </button>
             <button className="icon-btn" onClick={load} disabled={pending} title="Reload list (doesn't revalidate)" aria-label="Reload list">
@@ -147,14 +166,19 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
           {error && <div className="alert" role="alert">{error}. Check the dev server log.</div>}
           <div className="body">
             <ul className="list">
-              {shown.length === 0 && <li className="empty">No queries yet. A query shows up after query() runs once.</li>}
+              {shown.length === 0 && <li className="empty">Nothing yet. A tagged fetch or a query() shows up after it runs once.</li>}
               {shown.map((r) => (
                 <li key={r.id}>
-                  <Card row={r} now={now} selected={r.id === current?.id} busy={pending} onSelect={() => setSelected(r.id)} onRevalidate={revalidateKey} />
+                  <Card row={r} now={now} selected={r.id === current?.id} busy={pending} onSelect={() => setSelected(r.id)} onRevalidate={revalidate} />
                 </li>
               ))}
+              {untagged > 0 && (
+                <li className="empty">
+                  {untagged} cached {untagged === 1 ? 'fetch has' : 'fetches have'} no tags. Add <code>next: {'{ tags }'}</code> to see {untagged === 1 ? 'it' : 'them'} here.
+                </li>
+              )}
             </ul>
-            {current && <Detail row={current} now={now} busy={pending} onRevalidate={revalidateKey} onError={setError} />}
+            {current && <Detail row={current} now={now} busy={pending} onRevalidate={revalidate} onError={setError} />}
           </div>
         </section>
       ) : (
@@ -185,21 +209,22 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
 const SORTS: [Sort, string, typeof Clock][] = [
   ['updated', 'Updated', Clock],
   ['status', 'Status', Activity],
-  ['key', 'Key', Key],
+  ['key', 'Label', Key],
 ]
 
-type CardProps = { row: Row; now: number; selected: boolean; busy: boolean; onSelect: () => void; onRevalidate: (key: QueryKey) => void }
+type CardProps = { row: Row; now: number; selected: boolean; busy: boolean; onSelect: () => void; onRevalidate: (tags: string[]) => void }
 
 // The select control and the revalidate control are sibling buttons (a button can't contain one);
 // the revalidate button sits over the select button's top-right corner.
 function Card({ row, now, selected, busy, onSelect, onRevalidate }: CardProps) {
   const f = freshness(row, now)
-  const label = keyLabel(row.key!)
+  const tags = cardTags(row)
   return (
     <div className={`card${selected ? ' selected' : ''}`}>
       <button className="card-select" onClick={onSelect} aria-pressed={selected}>
         <span className="card-top">
-          <code>{label}</code>
+          <span className={`kind ${row.kind}`}>{row.kind}</span>
+          <code title={row.label}>{display(row)}</code>
           <span className={`pill ${row.status}`}>{row.status}</span>
         </span>
         <span className="meter">
@@ -216,10 +241,10 @@ function Card({ row, now, selected, busy, onSelect, onRevalidate }: CardProps) {
         disabled={busy}
         onClick={(e) => {
           e.stopPropagation()
-          onRevalidate(row.key!)
+          onRevalidate(tags)
         }}
-        aria-label={`Revalidate ${label}`}
-        title={`revalidate(${label})`}
+        aria-label={`Revalidate ${tags.join(', ')}`}
+        title={`Revalidate ${tags.join(', ')}`}
       >
         <Refresh2 size={15} />
       </button>
@@ -227,20 +252,26 @@ function Card({ row, now, selected, busy, onSelect, onRevalidate }: CardProps) {
   )
 }
 
-type DetailProps = { row: Row; now: number; busy: boolean; onRevalidate: (key: QueryKey) => void; onError: (message: string) => void }
+type DetailProps = { row: Row; now: number; busy: boolean; onRevalidate: (tags: string[]) => void; onError: (message: string) => void }
 
 function Detail({ row, now, busy, onRevalidate, onError }: DetailProps) {
-  // tags[i] is the tag of prefixes(key)[i].
-  const keyPrefixes = prefixes(row.key!)
+  const tags = cardTags(row)
+  const isFetch = row.kind === 'fetch'
   return (
     <div className="detail">
       <div className="detail-head">
-        <h2 className="title">{keyLabel(row.key!)}</h2>
-        <button className="text-btn primary small" disabled={busy} onClick={() => onRevalidate(row.key!)} aria-label={`Revalidate ${keyLabel(row.key!)}`} title={`revalidate(${keyLabel(row.key!)})`}>
+        <h2 className="title" title={row.label}>{row.label}</h2>
+        <button className="text-btn primary small" disabled={busy} onClick={() => onRevalidate(tags)} aria-label={`Revalidate ${tags.join(', ')}`} title={`Revalidate ${tags.join(', ')}`}>
           <Refresh2 size={14} />
           Revalidate
         </button>
       </div>
+      {isFetch && (
+        <div className="row">
+          <span className="row-k"><Key size={15} />URL</span>
+          <span className="row-url" title={row.label}>{shortUrl(row.label, 60)}</span>
+        </div>
+      )}
       <div className="row">
         <span className="row-k"><Activity size={15} />Status</span>
         <span className={`pill ${row.status}`}>{row.status}</span>
@@ -253,20 +284,24 @@ function Detail({ row, now, busy, onRevalidate, onError }: DetailProps) {
         <span className="row-k"><Clock size={15} />Updated</span>
         <span>{row.dataUpdatedAt ? `${new Date(row.dataUpdatedAt).toLocaleTimeString()} (${ago(now - row.dataUpdatedAt)})` : '—'}</span>
       </div>
-      <div className="row">
-        <span className="row-k"><Repeat size={15} />Reads / runs</span>
-        <span>
-          {row.reads} / {row.runs}
-        </span>
-      </div>
-      <div className="row">
-        <span className="row-k"><Flash size={15} />Last run</span>
-        <span>{row.lastDurationMs === undefined ? '—' : `${Math.round(row.lastDurationMs)} ms`}</span>
-      </div>
+      {!isFetch && (
+        <>
+          <div className="row">
+            <span className="row-k"><Repeat size={15} />Reads / runs</span>
+            <span>
+              {row.reads ?? 0} / {row.runs ?? 0}
+            </span>
+          </div>
+          <div className="row">
+            <span className="row-k"><Flash size={15} />Last run</span>
+            <span>{row.lastDurationMs === undefined ? '—' : `${Math.round(row.lastDurationMs)} ms`}</span>
+          </div>
+        </>
+      )}
       <div className="tags">
         <span className="row-k tags-label"><Hashtag size={15} />Tags</span>
-        {row.tags.map((tag, i) => (
-          <button key={tag} className="tag-btn" disabled={busy} onClick={() => onRevalidate(keyPrefixes[i])} title={`Revalidate ${tag}`} aria-label={`Revalidate ${tag}`}>
+        {row.tags.map((tag) => (
+          <button key={tag} className="tag-btn" disabled={busy} onClick={() => onRevalidate([tag])} title={`Revalidate ${tag}`} aria-label={`Revalidate ${tag}`}>
             {tag}
             <Refresh2 size={12} className="tag-ico" />
           </button>

@@ -1,5 +1,5 @@
 'use client'
-import { getQueries, revalidateAll, revalidateQuery } from './actions.js'
+import { getEntries, revalidateTags } from './actions.js'
 import { Panel } from './Panel.js'
 
 export type NextQueryProps = {
@@ -7,9 +7,9 @@ export type NextQueryProps = {
   position?: 'bottom-right' | 'bottom-left'
 }
 
-const source = { getQueries, revalidateQuery, revalidateAll }
+const source = { getEntries, revalidateTags }
 
-/** Dev-only panel listing every query() in the app. Renders nothing outside `next dev`. */
+/** Dev-only panel listing tagged fetches and query() data. Renders nothing outside `next dev`. */
 export function NextQuery({ position }: NextQueryProps) {
   // Dead code in production builds: the bundler inlines NODE_ENV.
   if (process.env.NODE_ENV !== 'development') return null

@@ -18,6 +18,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./demo": {
+      "types": "./dist/Demo.d.ts",
+      "import": "./dist/Demo.js",
+      "default": "./dist/Demo.js"
     }
   },
   "files": ["dist", "README.md", "logo.svg"],
