@@ -193,14 +193,14 @@ header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding:
 .detail-head { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 8px; padding: 0 0 0 10px; }
 .text-btn.small { height: 28px; padding: 0 10px; gap: 5px; font-size: 11px; flex-shrink: 0; }
 .title { flex: 1; min-width: 0; margin: 3px 0 0; padding: 0; font: 600 14px/1.4 var(--nq-mono); color: var(--nq-accent); word-break: break-all; }
-.row { display: flex; gap: 16px; justify-content: space-between; align-items: baseline; padding: 7px 10px; border-radius: 7px; line-height: 1.35; }
+.row { display: flex; gap: 16px; justify-content: space-between; align-items: center; min-height: 28px; padding: 3px 10px; border-radius: 7px; line-height: 1.3; }
 .row:hover { background: var(--nq-raised); }
 .row > :first-child { color: var(--nq-dim); flex-shrink: 0; }
 .row > :last-child { text-align: right; }
 .row-k { display: inline-flex; align-items: center; gap: 8px; color: var(--nq-dim); }
 .row-k svg { flex-shrink: 0; opacity: .8; }
 .tags-label { margin-right: 6px; }
-.tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 7px 10px 12px; }
+.tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 3px 10px 10px; }
 .tag-btn, .tag { height: 24px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--nq-border); color: var(--nq-accent); font: 600 11px var(--nq-mono); display: inline-flex; align-items: center; }
 .tag { border-style: dashed; color: var(--nq-dim); }
 .tag-btn::before, .tag::before { content: '#'; opacity: .6; }
