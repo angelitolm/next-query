@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom'
 import { usePathname, useRouter } from 'next/navigation'
 import { getQueries, revalidateAll, revalidateQuery } from './actions.js'
 import { ago, freshness, jsonTokens, keyLabel, prefixes, ROOT_TAG, sortEntries, status, type Entry, type QueryKey, type Sort, type Status } from './core.js'
-import { CloseCircle, Copy, CopySuccess, Refresh2, SearchNormal1 } from './icons.js'
+import { CloseCircle, Copy, CopySuccess, Refresh2, SearchNormal1, Clock, Activity, Key, Timer1, Repeat, Flash, Hashtag } from './icons.js'
 import { Logo } from './Logo.js'
 import { css } from './styles.js'
 
@@ -124,8 +124,9 @@ function Panel({ position = 'bottom-right' }: NextQueryProps) {
               <input placeholder="Filter by key" aria-label="Filter by key" value={filter} onChange={(e) => setFilter(e.target.value)} />
             </label>
             <div className="sort" role="group" aria-label="Sort">
-              {SORTS.map(([value, label]) => (
+              {SORTS.map(([value, label, Icon]) => (
                 <button key={value} aria-pressed={sort === value} onClick={() => setSort(value)}>
+                  <Icon size={14} />
                   {label}
                 </button>
               ))}
@@ -173,10 +174,10 @@ function Panel({ position = 'bottom-right' }: NextQueryProps) {
   )
 }
 
-const SORTS: [Sort, string][] = [
-  ['updated', 'Updated'],
-  ['status', 'Status'],
-  ['key', 'Key'],
+const SORTS: [Sort, string, typeof Clock][] = [
+  ['updated', 'Updated', Clock],
+  ['status', 'Status', Activity],
+  ['key', 'Key', Key],
 ]
 
 type CardProps = { row: Row; now: number; selected: boolean; busy: boolean; onSelect: () => void; onRevalidate: (key: QueryKey) => void }
@@ -233,28 +234,29 @@ function Detail({ row, now, busy, onRevalidate, onError }: DetailProps) {
         </button>
       </div>
       <div className="row">
-        <span>Status</span>
+        <span className="row-k"><Activity size={15} />Status</span>
         <span className={`pill ${row.status}`}>{row.status}</span>
       </div>
       <div className="row">
-        <span>Revalidate</span>
+        <span className="row-k"><Timer1 size={15} />Revalidate</span>
         <span>{row.revalidate === false ? 'never' : `${row.revalidate}s`}</span>
       </div>
       <div className="row">
-        <span>Updated</span>
+        <span className="row-k"><Clock size={15} />Updated</span>
         <span>{row.dataUpdatedAt ? `${new Date(row.dataUpdatedAt).toLocaleTimeString()} (${ago(now - row.dataUpdatedAt)})` : '—'}</span>
       </div>
       <div className="row">
-        <span>Reads / runs</span>
+        <span className="row-k"><Repeat size={15} />Reads / runs</span>
         <span>
           {row.reads} / {row.runs}
         </span>
       </div>
       <div className="row">
-        <span>Last run</span>
+        <span className="row-k"><Flash size={15} />Last run</span>
         <span>{row.lastDurationMs === undefined ? '—' : `${Math.round(row.lastDurationMs)} ms`}</span>
       </div>
       <div className="tags">
+        <span className="row-k tags-label"><Hashtag size={15} />Tags</span>
         {row.tags.map((tag, i) =>
           tag === ROOT_TAG ? (
             <span key={tag} className="tag" title="The root tag: use Revalidate all">
