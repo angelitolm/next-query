@@ -1,0 +1,80 @@
+{
+  "meta": {
+    "title": "next-query docs",
+    "description": "Cache server data by key in the Next.js App Router, revalidate it by key, and see every query in a dev panel."
+  },
+  "ui": {
+    "docs": "Docs",
+    "menu": "Menu",
+    "previous": "Previous",
+    "next": "Next",
+    "edit": "Edit this page on GitHub",
+    "theme": "Toggle theme",
+    "language": "Language",
+    "github": "GitHub",
+    "license": "Released under the MIT License.",
+    "demo": "Live demo"
+  },
+  "sections": {
+    "start": "Get started",
+    "guide": "Guide",
+    "reference": "Reference",
+    "project": "Project"
+  },
+  "pages": {
+    "index": {
+      "title": "Introduction",
+      "description": "What next-query is, what you get and when to use it."
+    },
+    "getting-started": {
+      "title": "Getting started",
+      "description": "Install the package, cache a query, revalidate it and open the panel."
+    },
+    "query": {
+      "title": "query",
+      "description": "Cache server data by key, with an optional revalidate window."
+    },
+    "revalidate": {
+      "title": "revalidate",
+      "description": "Revalidate a key, or everything under a prefix, from server actions and route handlers."
+    },
+    "keys-and-tags": {
+      "title": "Keys and tags",
+      "description": "How a key becomes cache tags, and how prefixes cover every key under them."
+    },
+    "panel": {
+      "title": "The panel",
+      "description": "The dev panel: queries, freshness bars, revalidating and the data of each key."
+    },
+    "compatibility": {
+      "title": "Compatibility",
+      "description": "What works on Next.js 15 and 16, and what runs where."
+    },
+    "security": {
+      "title": "Security",
+      "description": "What the dev panel exposes, and why it does nothing outside development."
+    },
+    "troubleshooting": {
+      "title": "Troubleshooting & FAQ",
+      "description": "Known limitations and fixes for common problems."
+    },
+    "contributing": {
+      "title": "Contributing",
+      "description": "Monorepo layout, the playground, tests, these docs and releasing."
+    }
+  },
+  "demo": {
+    "title": "Live demo",
+    "description": "The real panel, running on simulated queries. Revalidate a key and watch it refetch.",
+    "simulated": "Everything here runs in your browser: the panel is the real UI, fed with simulated queries.",
+    "sidebarCta": "Try the live demo",
+    "store": "Simulated data store",
+    "try": {
+      "revalidateCard": "revalidate one card with ↻",
+      "revalidatePrefix": "click the `#nq:products` tag to revalidate every product",
+      "revalidateAll": "Revalidate all",
+      "bars": "watch the bars count down",
+      "copy": "copy the JSON"
+    }
+  }
+}

@@ -1,0 +1,103 @@
+## Instalar
+
+```bash
+pnpm add @angelitolm/next-query
+```
+
+npm y yarn funcionan igual (`npm i …`, `yarn add …`). Instálalo como dependencia normal, no de desarrollo: `query()` y `revalidate()` también se ejecutan en producción.
+
+## Requisitos
+
+| | Mínimo |
+|---|---|
+| Next.js | 15, App Router |
+| React | 19 |
+
+## 1. Cachea una query
+
+Envuelve los datos que obtienes en `query()` dentro de un Server Component:
+
+```tsx title="app/products/[id]/page.tsx"
+import { query } from '@angelitolm/next-query'
+
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const product = await query(['products', id], () => db.product(id), { revalidate: 60 })
+  return <h1>{product.name}</h1>
+}
+```
+
+La clave es un array de strings y números. `fn` es cualquier código de servidor, y su resultado debe ser serializable a JSON: un `Date` vuelve como string. `revalidate` es el número de segundos hasta que los datos quedan obsoletos y se vuelven a pedir en la siguiente lectura; si lo omites, los datos se conservan hasta que los revalides.
+
+## 2. Revalídala
+
+Llama a `revalidate()` desde una Server Action después de cambiar los datos:
+
+```ts title="app/actions.ts"
+'use server'
+import { revalidate } from '@angelitolm/next-query'
+
+export async function renameProduct(id: string, name: string) {
+  await db.rename(id, name)
+  revalidate('products') // ['products'] y todo lo que cuelga de él
+}
+```
+
+Úsala desde un formulario:
+
+```tsx title="app/products/[id]/rename-form.tsx"
+import { renameProduct } from '@/app/actions'
+
+export function RenameForm({ id }: { id: string }) {
+  return (
+    <form
+      action={async (data) => {
+        'use server'
+        await renameProduct(id, String(data.get('name')))
+      }}
+    >
+      <input name="name" />
+      <button>Rename</button>
+    </form>
+  )
+}
+```
+
+`revalidate(['products', id])` revalida solo ese producto. Llámala desde Server Actions y route handlers.
+
+## 3. Añade el panel
+
+```tsx title="app/layout.tsx"
+import { NextQuery } from '@angelitolm/next-query'
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        {children}
+        <NextQuery />
+      </body>
+    </html>
+  )
+}
+```
+
+Ponlo en el layout **raíz** para que sobreviva a la navegación. Usa `position="bottom-left"` para moverlo.
+
+## 4. Ejecútalo
+
+```bash
+pnpm dev
+```
+
+Abre una página que llame a `query()`. En la esquina inferior derecha aparece un lanzador redondo con el logo; ábrelo para ver la clave, su estado, una barra de frescura y sus datos. Haz clic en ↻ en una tarjeta para revalidar esa clave.
+
+<Callout type="note" title="Una query aparece cuando se ha ejecutado">
+  El panel lista una query después de que se haya ejecutado desde que arrancó el servidor de desarrollo. Visita primero la página que la llama.
+</Callout>
+
+## Siguientes pasos
+
+- [query](./query): claves, `fn` y la ventana de `revalidate`.
+- [Claves y tags](./keys-and-tags): cómo un prefijo llega a todas las claves debajo de él.
+- [El panel](./panel): estados, barras de frescura y revalidar desde el panel.

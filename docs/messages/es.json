@@ -1,0 +1,80 @@
+{
+  "meta": {
+    "title": "Docs de next-query",
+    "description": "Cachea datos del servidor por clave en el App Router de Next.js, revalídalos por clave y mira cada query en un panel de desarrollo."
+  },
+  "ui": {
+    "docs": "Docs",
+    "menu": "Menú",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "edit": "Editar esta página en GitHub",
+    "theme": "Cambiar tema",
+    "language": "Idioma",
+    "github": "GitHub",
+    "license": "Publicado bajo la licencia MIT.",
+    "demo": "Demo en vivo"
+  },
+  "sections": {
+    "start": "Primeros pasos",
+    "guide": "Guía",
+    "reference": "Referencia",
+    "project": "Proyecto"
+  },
+  "pages": {
+    "index": {
+      "title": "Introducción",
+      "description": "Qué es next-query, qué obtienes y cuándo usarlo."
+    },
+    "getting-started": {
+      "title": "Empezar",
+      "description": "Instala el paquete, cachea una query, revalídala y abre el panel."
+    },
+    "query": {
+      "title": "query",
+      "description": "Cachea datos del servidor por clave, con una ventana de revalidate opcional."
+    },
+    "revalidate": {
+      "title": "revalidate",
+      "description": "Revalida una clave, o todo lo que cuelga de un prefijo, desde server actions y route handlers."
+    },
+    "keys-and-tags": {
+      "title": "Claves y tags",
+      "description": "Cómo una clave se convierte en tags de caché y cómo un prefijo cubre todas las claves debajo de él."
+    },
+    "panel": {
+      "title": "El panel",
+      "description": "El panel de desarrollo: queries, barras de frescura, revalidar y los datos de cada clave."
+    },
+    "compatibility": {
+      "title": "Compatibilidad",
+      "description": "Qué funciona en Next.js 15 y 16, y qué se ejecuta dónde."
+    },
+    "security": {
+      "title": "Seguridad",
+      "description": "Qué expone el panel de desarrollo y por qué no hace nada fuera de desarrollo."
+    },
+    "troubleshooting": {
+      "title": "Problemas y FAQ",
+      "description": "Limitaciones conocidas y soluciones a problemas habituales."
+    },
+    "contributing": {
+      "title": "Contribuir",
+      "description": "Estructura del monorepo, el playground, los tests, estas docs y cómo se publica."
+    }
+  },
+  "demo": {
+    "title": "Demo en vivo",
+    "description": "El panel real, funcionando con queries simuladas. Revalida una clave y míralo volver a cargar.",
+    "simulated": "Todo esto se ejecuta en tu navegador: el panel es la UI real, alimentada con queries simuladas.",
+    "sidebarCta": "Prueba la demo en vivo",
+    "store": "Almacén de datos simulado",
+    "try": {
+      "revalidateCard": "revalida una tarjeta con ↻",
+      "revalidatePrefix": "haz clic en el tag `#nq:products` para revalidar todos los productos",
+      "revalidateAll": "Revalidar todo",
+      "bars": "mira cómo las barras cuentan hacia atrás",
+      "copy": "copia el JSON"
+    }
+  }
+}

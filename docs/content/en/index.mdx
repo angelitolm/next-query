@@ -1,0 +1,65 @@
+next-query caches server data by key in the **Next.js App Router** and revalidates it by key. You wrap a fetch, an ORM call or any server code in `query()`, and call `revalidate()` with the same key when the data changes. While you run `next dev`, a panel lists every query in your app and revalidates any of them with one click.
+
+## Quick look
+
+Cache by key in a page:
+
+```tsx title="app/products/[id]/page.tsx"
+import { query } from '@angelitolm/next-query'
+
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const product = await query(['products', id], () => db.product(id), { revalidate: 60 })
+  return <h1>{product.name}</h1>
+}
+```
+
+Revalidate by key in a server action:
+
+```ts title="app/actions.ts"
+'use server'
+import { revalidate } from '@angelitolm/next-query'
+
+export async function renameProduct(id: string, name: string) {
+  await db.rename(id, name)
+  revalidate('products') // ['products'] and everything under it
+}
+```
+
+See every query in the layout:
+
+```tsx title="app/layout.tsx"
+import { NextQuery } from '@angelitolm/next-query'
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        {children}
+        <NextQuery />
+      </body>
+    </html>
+  )
+}
+```
+
+## What you get
+
+- **Cache by key**: the key is an array of strings and numbers, and it is also the name you revalidate by.
+- **Revalidate by prefix**: `revalidate('products')` covers `['products', '1']`, `['products', '2']` and every other key under it.
+- **A dev panel with freshness bars**: each key with its status, a bar that counts down to stale, its data and a ↻ button.
+- **Next 15 and 16**: App Router and React 19, on both.
+
+<Callout type="tip" title="Try it without installing">
+  The [live demo](./demo) runs the real panel on simulated queries: revalidate a card, revalidate a whole prefix, watch the bars count down.
+</Callout>
+
+<Callout type="note" title="Development only, for the panel">
+  `<NextQuery />` renders nothing outside development, and its server actions refuse to run. `query()` and `revalidate()` are the library itself: they run everywhere, in development and in production.
+</Callout>
+
+## Where to go next
+
+- [Getting started](./getting-started): install it and cache your first query in two minutes.
+- [query](./query): keys, `fn` and the `revalidate` window.
+- [Keys and tags](./keys-and-tags): how a prefix reaches every key under it.

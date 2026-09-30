@@ -1,0 +1,103 @@
+## Install
+
+```bash
+pnpm add @angelitolm/next-query
+```
+
+npm and yarn work the same way (`npm i …`, `yarn add …`). Install it as a regular dependency, not a dev one: `query()` and `revalidate()` run in production too.
+
+## Requirements
+
+| | Minimum |
+|---|---|
+| Next.js | 15, App Router |
+| React | 19 |
+
+## 1. Cache a query
+
+Wrap the data you fetch in `query()` in a Server Component:
+
+```tsx title="app/products/[id]/page.tsx"
+import { query } from '@angelitolm/next-query'
+
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const product = await query(['products', id], () => db.product(id), { revalidate: 60 })
+  return <h1>{product.name}</h1>
+}
+```
+
+The key is an array of strings and numbers. `fn` is any server code, and its result must be JSON-serializable: a `Date` comes back as a string. `revalidate` is the number of seconds until the data is stale and refetched on the next read; leave it out and the data is kept until you revalidate it.
+
+## 2. Revalidate it
+
+Call `revalidate()` from a Server Action after you change the data:
+
+```ts title="app/actions.ts"
+'use server'
+import { revalidate } from '@angelitolm/next-query'
+
+export async function renameProduct(id: string, name: string) {
+  await db.rename(id, name)
+  revalidate('products') // ['products'] and everything under it
+}
+```
+
+Use it from a form:
+
+```tsx title="app/products/[id]/rename-form.tsx"
+import { renameProduct } from '@/app/actions'
+
+export function RenameForm({ id }: { id: string }) {
+  return (
+    <form
+      action={async (data) => {
+        'use server'
+        await renameProduct(id, String(data.get('name')))
+      }}
+    >
+      <input name="name" />
+      <button>Rename</button>
+    </form>
+  )
+}
+```
+
+`revalidate(['products', id])` revalidates only that product. Call it from Server Actions and route handlers.
+
+## 3. Add the panel
+
+```tsx title="app/layout.tsx"
+import { NextQuery } from '@angelitolm/next-query'
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        {children}
+        <NextQuery />
+      </body>
+    </html>
+  )
+}
+```
+
+Put it in the **root** layout so it survives navigation. Use `position="bottom-left"` to move it.
+
+## 4. Run it
+
+```bash
+pnpm dev
+```
+
+Open a page that calls `query()`. A round launcher with the logo appears in the bottom-right corner; open it to see the key, its status, a freshness bar and its data. Click ↻ on a card to revalidate that key.
+
+<Callout type="note" title="A query appears once it has run">
+  The panel lists a query after it has run since the dev server started. Visit the page that calls it first.
+</Callout>
+
+## Next steps
+
+- [query](./query): keys, `fn` and the `revalidate` window.
+- [Keys and tags](./keys-and-tags): how a prefix reaches every key under it.
+- [The panel](./panel): statuses, freshness bars and revalidating from the panel.
