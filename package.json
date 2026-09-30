@@ -1,0 +1,14 @@
+{
+  "name": "next-query-monorepo",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm --filter @angelitolm/next-query build",
+    "test": "pnpm --filter @angelitolm/next-query test",
+    "pack": "pnpm build && cd packages/next-query && pnpm pack --pack-destination ../../.tarballs"
+  },
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=22.18"
+  }
+}

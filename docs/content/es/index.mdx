@@ -1,0 +1,75 @@
+next-query te deja etiquetar tu `fetch` nativo en el **App Router de Next.js** y revalidarlo por tag cuando los datos cambian. Mientras ejecutas `next dev`, un panel lista cada fetch etiquetado de tu app y revalida cualquiera de ellos con un clic. Los datos que no son `fetch` (un ORM, un SDK) entran en los mismos tags con `query()`.
+
+## Vistazo rápido
+
+Etiqueta un fetch en una página. Es Next normal, sin importar nada:
+
+```tsx title="app/products/page.tsx"
+export default async function Page() {
+  const res = await fetch(`${API}/products`, { next: { tags: ['products'], revalidate: 60 } })
+  const products = await res.json()
+  return <ul>{products.map((p) => <li key={p.id}>{p.name}</li>)}</ul>
+}
+```
+
+Revalida por tag en una server action:
+
+```ts title="app/actions.ts"
+'use server'
+import { revalidate } from '@angelitolm/next-query'
+
+export async function renameProduct(id: string, name: string) {
+  await db.rename(id, name)
+  revalidate('products') // revalidateTag('products', { expire: 0 })
+}
+```
+
+Opcionalmente, dale una jerarquía a los tags con `tags()`:
+
+```ts title="app/products/[id]/page.tsx"
+import { tags } from '@angelitolm/next-query'
+
+fetch(url, { next: { tags: tags(['products', id]) } }) // ['products', 'products/1']
+```
+
+`revalidate('products')` ahora también cubre cada producto, porque todos llevan el tag `products`.
+
+Mira cada fetch etiquetado desde el layout:
+
+```tsx title="app/layout.tsx"
+import { NextQuery } from '@angelitolm/next-query'
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        {children}
+        <NextQuery />
+      </body>
+    </html>
+  )
+}
+```
+
+## Qué obtienes
+
+- **Tu fetch sigue siendo un fetch**: etiquétalo con `next: { tags }` y conserva el resto de tu código.
+- **Revalidar por tag**: `revalidate('products')` expira el tag al instante.
+- **Jerarquía cuando la quieras**: `tags(['products', 1])` devuelve `['products', 'products/1']`, así que `revalidate('products')` llega a cada producto.
+- **Un panel de desarrollo con barras de frescura**: cada fetch etiquetado con su estado, una barra que cuenta hacia atrás hasta quedar obsoleto, su respuesta y un botón ↻.
+- **`query()` para lo que no es fetch**: una llamada al ORM o a un SDK se cachea bajo una clave y se etiqueta igual.
+- **Next 15 y 16**: App Router y React 19, en ambos.
+
+<Callout type="tip" title="Pruébalo sin instalar nada">
+  La [demo en vivo](./demo) ejecuta el panel real con fetches y una query simulados: revalida un fetch, revalida todos los productos con un solo tag, mira cómo las barras cuentan hacia atrás.
+</Callout>
+
+<Callout type="note" title="El panel, solo en desarrollo">
+  `<NextQuery />` no renderiza nada fuera de desarrollo, y sus server actions se niegan a ejecutarse. `query()`, `revalidate()` y `tags()` son la propia librería: se ejecutan en todas partes, en desarrollo y en producción.
+</Callout>
+
+## Por dónde seguir
+
+- [Empezar](./getting-started): etiqueta tu primer fetch en dos minutos.
+- [Tags](./tags): tags planos y la jerarquía de `tags()`.
+- [query](./query): cachear datos que no son `fetch`.

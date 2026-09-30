@@ -1412,6 +1412,65 @@ git add -A && git commit -m "feat: NextQuery panel with dev-only server actions"
 
 ---
 
+### Task 4b: Panel redesign in next-toolbar's visual language, freshness bars
+
+Requested by the user mid-execution (2026-09-29): the panel should look practically like next-toolbar, including the logo (N and Q joined in one mark). The differences are an orange → yellow gradient instead of lime → cyan, and no native `<select>`s. Add a progress bar per query that shows how far it is toward stale (`revalidate`). The behavior from Task 4 (data loading, actions, filter, sort, position, dev guard) does not change.
+
+Reference, read-only: `C:\dev\next-toolbar\packages\next-toolbar\src\styles.ts` (tokens, `.launcher`, `.panel`, `.profiler`, `.row`, `.tag-btn`, `.status.ok`, `.text-btn`, `.icon-btn`, scrollbars, light theme), `Logo.tsx`, `icons.tsx` (Iconsax "Broken" icons, inlined).
+
+**Files:**
+- Create: `packages/next-query/src/Logo.tsx`, `packages/next-query/src/icons.tsx`, `packages/next-query/logo.svg`
+- Modify: `packages/next-query/src/styles.ts` (rewrite), `packages/next-query/src/NextQuery.tsx` (markup only, logic unchanged), `packages/next-query/src/core.ts` + `core.test.ts` (add `shortDuration`, `freshness`; `ago` reuses `shortDuration`), `packages/next-query/package.json` (`files` adds `logo.svg`)
+
+**Interfaces:**
+- Consumes: everything Task 4 built. `NextQuery.tsx`'s state, effects, `load`, `act` and the action calls stay as they are.
+- Produces (in `core.ts`):
+  - `shortDuration(ms: number): string`: whole units, `'59s'`, `'3m'`, `'2h'` (below 1s → `'0s'`)
+  - `ago(ms)`: unchanged output (`'just now'`, `'12s ago'`, `'3m ago'`, `'2h ago'`), now `` `${shortDuration(ms)} ago` `` for ms ≥ 1000
+  - `freshness(entry: Pick<Entry, 'revalidate' | 'dataUpdatedAt'>, now: number): { ratio: number; label: string } | null`: `null` when `revalidate === false` or `dataUpdatedAt` is unknown. Otherwise `ratio = min(age / (revalidate*1000), 1)`, and `label` is `` `${shortDuration(remaining)} left` `` while `age <= revalidate*1000`, else `` `stale ${shortDuration(age - revalidate*1000)}` ``.
+
+**Design requirements**
+- Tokens: same structure and names as next-toolbar's `:host` block, prefixed `--nq-`: `--nq-from: #ff8a3d`, `--nq-to: #ffd23f`, `--nq-primary` gradient 90deg from → to, `--nq-on-primary: #1a0f05`, glow in orange `rgba(255, 160, 60, .45)`. Surfaces, borders, text, dim, err, shadow, radius 12px, Inter font stack and mono stack copied from next-toolbar dark. Light theme through `@media (prefers-color-scheme: light)` like next-toolbar's (no theme prop), with the accent darkened for contrast on white (`#c2410c`). The logo sits on the dark mark tile in both themes, as in next-toolbar.
+- Logo: one 32×32 mark in next-toolbar's style (4.5 stroke weight, rounded caps, `currentColor` solid strokes, gradient diagonal with a blurred glow copy). It joins N and Q: a left vertical, a Q bowl on the right (ring stroke), and the N's gradient diagonal running from the top of the left vertical through the bowl and out past its bottom-right as the Q's tail. Starting point to refine by eye:
+  ```svg
+  <rect x="5" y="7" width="4.5" height="18" rx="2.25" fill="currentColor"/>
+  <circle cx="19" cy="16" r="7.25" stroke="currentColor" stroke-width="4.5"/>
+  <path d="M8 10 26 26" stroke="url(#nq-logo-grad)" stroke-width="4.5" stroke-linecap="round"/>
+  ```
+  Gradient ids are prefixed `nq-`. `logo.svg` at the package root is the same mark with the solid strokes hardcoded to `#f4f4f5` on a transparent background.
+- Launcher (closed state): next-toolbar's `.launcher`, a 52px circle on the mark tile with the logo, at `bottom: 16px` and `right: 16px` (or `left: 16px` for `bottom-left`). A bubble shows the count of stale + error queries (err color if any error, else warn), or a small gradient dot when everything is fresh. `aria-label` keeps the counts, e.g. "Open next-query: 12 queries, 3 stale".
+- Panel (open): next-toolbar's floating surface (surface gradient, border, shadow, 12px radius), anchored to the same corner, `width: min(920px, calc(100vw - 32px))`, `height: min(460px, 70vh)`.
+  - Header: mark tile (30px) + "next-query" + count chips. A search input styled like next-toolbar (no native look, search icon inside). Sort as a segmented control (three buttons in `role="group" aria-label="Sort"`, the active one `aria-pressed="true"`, gradient underline or tint). `.icon-btn` reload and close with Iconsax Broken icons (copy only the ones used, with the same license header). "Revalidate all" as a `.text-btn` in the primary gradient style.
+  - List: one card per query, as in the reference image the user sent (dark cards, key in mono, status pill top-right, thin progress bar with an uppercase mono label). Top line: key in mono and the status badge right-aligned (fresh = primary gradient pill; stale = warn-tinted; error = err-tinted). Below: the freshness bar (thin raised track, gradient fill at `ratio`, turning warn-colored once stale) with the mono label on the right (`6S LEFT` / `STALE 12S`, uppercase, letter-spaced). With `revalidate: false`, show "never stale" and no bar. The selected card has an accent border and a faint orange tint (`--nq-active-bg`).
+  - Detail: the key as a title in mono accent, then next-toolbar `.row` rows (status, revalidate, updated, reads / runs, last run). Tags are `.tag-btn` chips (`#nq:products`), and each non-root tag chip revalidates its prefix (replacing the separate ↻ buttons; the root `nq` tag is shown but not clickable because "Revalidate all" covers it). Errors in next-toolbar's err colors. Data preview in a mono `pre` on the raised background.
+  - next-toolbar's slim scrollbars, focus-visible outlines, and `button { all: unset }` base.
+- No `<select>` anywhere in the package.
+- Phone width (375px): the panel fits with no horizontal scroll; list and detail stack.
+
+- [ ] **Step 1: Failing tests for `shortDuration` and `freshness`** (append to `core.test.ts`, and add `shortDuration, freshness` to its import):
+```ts
+test('shortDuration uses whole units', () => {
+  assert.equal(shortDuration(400), '0s')
+  assert.equal(shortDuration(59_000), '59s')
+  assert.equal(shortDuration(3 * 60_000), '3m')
+  assert.equal(shortDuration(2 * 3_600_000), '2h')
+})
+
+test('freshness: ratio toward stale and a label', () => {
+  assert.deepEqual(freshness({ revalidate: 10, dataUpdatedAt: 0 }, 4_000), { ratio: 0.4, label: '6s left' })
+  assert.deepEqual(freshness({ revalidate: 10, dataUpdatedAt: 0 }, 10_000), { ratio: 1, label: '0s left' })
+  assert.deepEqual(freshness({ revalidate: 10, dataUpdatedAt: 0 }, 22_000), { ratio: 1, label: 'stale 12s' })
+  assert.equal(freshness({ revalidate: false, dataUpdatedAt: 0 }, 5_000), null)
+  assert.equal(freshness({ revalidate: 10 }, 5_000), null)
+})
+```
+Run `pnpm test`: expect FAIL.
+- [ ] **Step 2: Implement them in `core.ts`** (no imports added), with `ago` reusing `shortDuration`. `pnpm test` passes (existing `ago` tests unchanged).
+- [ ] **Step 3: Logo, icons, styles, markup** per the design requirements. The shadow root already isolates the CSS, so class names need no prefix.
+- [ ] **Step 4: Build, typecheck, test, smoke**: `pnpm build && pnpm --filter @angelitolm/next-query typecheck && pnpm test && pnpm --filter playground smoke` pass. `grep -rn "<select" packages/next-query/src` finds nothing.
+- [ ] **Step 5: Commit** `feat: panel in next-toolbar style with freshness bars`
+
+
 ### Task 5: CI, publish workflow, README
 
 **Files:**

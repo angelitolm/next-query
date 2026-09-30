@@ -1,0 +1,54 @@
+{
+  "name": "@angelitolm/next-query",
+  "version": "0.1.0",
+  "description": "Revalidate tagged fetch() calls by tag in the Next.js App Router, with a dev panel that lists every cached fetch and query",
+  "keywords": ["nextjs", "next", "app-router", "cache", "revalidate", "unstable_cache", "revalidate-tag", "server-actions", "devtools", "react", "fetch", "fetch-cache", "tags", "cache-tags"],
+  "author": "Angel Labrada Massó",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/angelitolm/next-query.git",
+    "directory": "packages/next-query"
+  },
+  "bugs": "https://github.com/angelitolm/next-query/issues",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./demo": {
+      "types": "./dist/Demo.d.ts",
+      "import": "./dist/Demo.js",
+      "default": "./dist/Demo.js"
+    }
+  },
+  "files": ["dist", "README.md", "logo.svg"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "node --test src/core.test.ts",
+    "typecheck": "tsc --noEmit",
+    "prepack": "node -e \"require('node:fs').copyFileSync('../../README.md','README.md');require('node:fs').copyFileSync('../../LICENSE','LICENSE')\""
+  },
+  "peerDependencies": {
+    "next": ">=15",
+    "react": ">=19",
+    "react-dom": ">=19"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19.3.0",
+    "next": "16.3.6",
+    "react": "^19",
+    "react-dom": "^19",
+    "tsup": "^8",
+    "typescript": "^5"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

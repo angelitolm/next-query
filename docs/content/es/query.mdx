@@ -1,0 +1,151 @@
+`query()` es para los datos que no son `fetch`: una llamada al ORM, una llamada a un SDK, la lectura de un archivo. Cachea el resultado de cualquier código de servidor bajo una clave, y lo etiqueta igual que un fetch etiquetado, así que [`revalidate()`](./revalidate) y [el panel](./panel) tratan a ambos por igual. Si puedes etiquetar un `fetch` nativo, hazlo así: mira [Empezar](./getting-started).
+
+Llama a `query()` en un Server Component, un route handler o una server action, y todas las lecturas con la misma clave comparten una entrada de caché.
+
+## ¿fetch o `query()`?
+
+Usa un `fetch` nativo con tags siempre que puedas. Usa `query()` solo cuando el dato no viene del `fetch` de Next: Next cachea y etiqueta `fetch` por sí mismo, y nada más.
+
+| Tu dato viene de | Usa | Por qué |
+|---|---|---|
+| `fetch()` a una API HTTP | `fetch(url, { next: { tags, revalidate } })` | Next lo cachea y el panel lo lee de la caché de fetch de Next |
+| axios, got, `node:http` | `query()` | En el servidor no pasan por `fetch`, así que Next no puede cachearlos ni etiquetarlos |
+| Un ORM o un driver de base de datos (Prisma, Drizzle, `pg`) | `query()` | Ni siquiera es una llamada HTTP |
+| Un SDK (Stripe, un cliente de S3, el cliente de un CMS) | `query()` | Sus peticiones internas no aceptan `next.tags` |
+| La lectura de un archivo, un cálculo | `query()` | No hay nada que Next pueda cachear |
+
+### fetch nativo: sin `query()`
+
+```tsx title="app/products/page.tsx"
+import { tags } from '@angelitolm/next-query'
+
+const res = await fetch('https://api.example.com/products', {
+  next: { tags: tags(['products']), revalidate: 60 },
+})
+const products = await res.json()
+```
+
+### axios: envuélvelo en `query()`
+
+```tsx title="app/products/page.tsx"
+import axios from 'axios'
+import { query } from '@angelitolm/next-query'
+
+const products = await query(
+  ['products'],
+  async () => (await axios.get('https://api.example.com/products')).data,
+  { revalidate: 60 },
+)
+```
+
+Devuelve `.data`, no la respuesta de axios: el resultado tiene que ser serializable a JSON, y el objeto de respuesta lleva la petición, las cabeceras y la configuración.
+
+### Prisma (o cualquier ORM): envuélvelo en `query()`
+
+```tsx title="app/products/[id]/page.tsx"
+import { query } from '@angelitolm/next-query'
+import { prisma } from '@/lib/prisma'
+
+const product = await query(['products', id], () => prisma.product.findUnique({ where: { id } }))
+```
+
+### Un SDK: envuélvelo en `query()`
+
+```tsx title="app/billing/page.tsx"
+import Stripe from 'stripe'
+import { query } from '@angelitolm/next-query'
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+const prices = await query(['prices'], async () => (await stripe.prices.list({ active: true })).data, { revalidate: 300 })
+```
+
+### Mezclar los dos bajo un mismo tag
+
+Un fetch y un `query()` que comparten tag se revalidan juntos. Aquí la lista viene de una API y un producto de la base de datos, y `revalidate('products')` expira ambos:
+
+```tsx
+fetch('https://api.example.com/products', { next: { tags: tags(['products']), revalidate: 60 } })
+query(['products', id], () => prisma.product.findUnique({ where: { id } }))
+
+// server action
+revalidate('products')
+```
+
+<Callout type="warning" title="No envuelvas un fetch en query()">
+  `query(['products'], () => fetch(url).then((r) => r.json()))` cachea el mismo dato dos veces, en `unstable_cache` y en la caché de fetch de Next, y las dos pueden desincronizarse. Etiqueta el `fetch` en su lugar.
+</Callout>
+
+## Firma
+
+```ts title="@angelitolm/next-query"
+function query<T>(key: QueryKey, fn: () => T | Promise<T>, config?: QueryConfig): Promise<T>
+
+type QueryKey = (string | number)[]
+type QueryConfig = { revalidate?: number | false }
+```
+
+```tsx title="app/products/[id]/page.tsx"
+import { query } from '@angelitolm/next-query'
+
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const product = await query(['products', id], () => db.product(id), { revalidate: 60 })
+  return <h1>{product.name}</h1>
+}
+```
+
+- `key` da nombre a la entrada, y sus tags son `tags(key)`. Tanto `revalidate(['products', id])` como `revalidate('products')` la alcanzan. Las reglas están en [Tags](./tags).
+- `fn` es cualquier código de servidor: una llamada al ORM, una llamada a un SDK, la lectura de un archivo. Se ejecuta cuando la caché no tiene el dato.
+- `config.revalidate` son los segundos hasta que los datos quedan obsoletos, o `false` (por defecto) para conservarlos hasta que los revalides. Cualquier otro valor, como `0`, un número negativo o `NaN`, lanza un `TypeError`.
+
+## El resultado debe ser serializable a JSON
+
+Next guarda el valor con `unstable_cache`, que guarda JSON. Cuando hay un acierto de caché recibes lo que `fn` devolvió después de pasar por JSON: un `Date` vuelve como string, y los valores `undefined`, las funciones y las instancias de clases no sobreviven.
+
+```ts title="lib/data.ts"
+const row = await query(['events', 1], async () => ({ at: new Date() }))
+typeof row.at // 'string' cuando viene de la caché, no un Date
+```
+
+Devuelve datos planos y conviértelos después de leer (`new Date(row.at)`).
+
+## Reutiliza una query con una función normal
+
+No hay ningún objeto query que compartir. Envuelve la llamada en una función e impórtala:
+
+```ts title="lib/products.ts"
+import { query } from '@angelitolm/next-query'
+
+export const getProduct = (id: string) => query(['products', id], () => db.product(id))
+```
+
+La clave vive en un solo sitio, así que la página que lee y la action que revalida no pueden desincronizarse.
+
+## Errores
+
+Si `fn` lanza un error, no se cachea nada: la siguiente lectura vuelve a ejecutar `fn`. El error se relanza, así que llega a tu `error.tsx` como siempre, y en desarrollo el panel lo muestra en la tarjeta con el estado `error`.
+
+`notFound()` y `redirect()` dentro de `fn` son control de flujo, no fallos. Pasan sin tocarse y no se registran como errores.
+
+```tsx title="app/products/[id]/page.tsx"
+import { notFound } from 'next/navigation'
+import { query } from '@angelitolm/next-query'
+
+const product = await query(['products', id], async () => {
+  const row = await db.product(id)
+  if (!row) notFound() // llega a la página not-found de Next, no a la lista de errores del panel
+  return row
+})
+```
+
+## Stale-while-revalidate
+
+Con `revalidate: 60`, los datos están frescos durante 60 segundos. La primera lectura después de eso sirve los datos viejos y los vuelve a pedir en segundo plano, de modo que la petición siguiente recibe los datos nuevos. Así funciona `unstable_cache`, y `query()` no lo cambia.
+
+<Callout type="tip" title="¿Quieres los datos nuevos ya?">
+  Llama a [`revalidate()`](./revalidate) desde una server action. Expira la entrada al momento, sin esperar a que termine la ventana.
+</Callout>
+
+## Cómo funciona
+
+`query()` envuelve `fn` en `unstable_cache` con las partes de clave `['next-query', <JSON de la clave>]` y con los tags `tags(key)` (mira [Tags](./tags)). No se guarda nada más, y no se usa `'use cache'`. Como el JSON de la clave forma parte de la clave de caché, `['products', 1]` y `['products', '1']` son entradas distintas.

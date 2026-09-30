@@ -1,0 +1,122 @@
+## Instalar
+
+```bash
+pnpm add @angelitolm/next-query
+```
+
+npm y yarn funcionan igual (`npm i …`, `yarn add …`). Instálalo como dependencia normal, no de desarrollo: `revalidate()`, `tags()` y `query()` también se ejecutan en producción.
+
+## Requisitos
+
+| | Mínimo |
+|---|---|
+| Next.js | 15, App Router |
+| React | 19 |
+
+## 1. Etiqueta un fetch
+
+En un Server Component, añade `next.tags` a un `fetch` nativo. Es Next normal, y no necesita ninguna importación:
+
+```tsx title="app/products/page.tsx"
+export default async function Page() {
+  const res = await fetch(`${API}/products`, { next: { tags: ['products'], revalidate: 60 } })
+  const products: { id: number; name: string }[] = await res.json()
+  return (
+    <ul>
+      {products.map((p) => (
+        <li key={p.id}>{p.name}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+`revalidate` es el número de segundos hasta que los datos quedan obsoletos y se vuelven a pedir en la siguiente lectura; para cachear el fetch, define `next.revalidate` (segundos) o `cache: 'force-cache'`; un fetch sin ninguno de los dos puede no cachearse.
+
+## 2. Revalídalo
+
+Llama a `revalidate()` desde una Server Action después de cambiar los datos:
+
+```ts title="app/actions.ts"
+'use server'
+import { revalidate } from '@angelitolm/next-query'
+
+export async function renameProduct(id: string, name: string) {
+  await db.rename(id, name)
+  revalidate('products') // revalidateTag('products', { expire: 0 })
+}
+```
+
+Úsala desde un formulario:
+
+```tsx title="app/products/[id]/rename-form.tsx"
+import { renameProduct } from '@/app/actions'
+
+export function RenameForm({ id }: { id: string }) {
+  return (
+    <form
+      action={async (data) => {
+        'use server'
+        await renameProduct(id, String(data.get('name')))
+      }}
+    >
+      <input name="name" />
+      <button>Rename</button>
+    </form>
+  )
+}
+```
+
+`revalidate('products')` expira exactamente el tag `products`. Llámala desde Server Actions y route handlers.
+
+Para revalidar un producto y no toda la lista, etiqueta el fetch con el helper opcional `tags()` (`fetch(url, { next: { tags: tags(['products', id]) } })`) y llama a `revalidate(['products', id])`. Mira [Tags](./tags).
+
+## 3. Añade el panel
+
+```tsx title="app/layout.tsx"
+import { NextQuery } from '@angelitolm/next-query'
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        {children}
+        <NextQuery />
+      </body>
+    </html>
+  )
+}
+```
+
+Ponlo en el layout **raíz** para que sobreviva a la navegación. Usa `position="bottom-left"` para moverlo.
+
+## 4. Ejecútalo
+
+```bash
+pnpm dev
+```
+
+Abre una página que ejecute el fetch etiquetado. En la esquina inferior derecha aparece un lanzador redondo con el logo; ábrelo para ver la URL, su estado, una barra de frescura y la respuesta. Haz clic en ↻ en una tarjeta para revalidar los tags del fetch.
+
+<Callout type="note" title="Un fetch aparece cuando se ha ejecutado">
+  El panel lee la caché de fetch de Next, así que un fetch aparece después de ejecutarse y quedar en caché. Visita primero la página que lo hace. Un fetch sin `next.tags` no aparece: el panel solo lo cuenta y te recuerda que añadas tags.
+</Callout>
+
+## Datos que no son fetch
+
+Etiqueta `fetch` directamente. Todo lo que no pasa por el `fetch` de Next va por `query()`:
+
+| Tu dato viene de | Usa |
+|---|---|
+| `fetch()` | `fetch(url, { next: { tags, revalidate } })` |
+| axios, got | `query(['products'], async () => (await axios.get(url)).data)` |
+| Prisma, Drizzle, un driver de base de datos | `query(['products', id], () => prisma.product.findUnique({ where: { id } }))` |
+| Un SDK (Stripe, S3, un CMS) | `query(['prices'], async () => (await stripe.prices.list()).data)` |
+
+Ejemplos de cada caso, y por qué no conviene envolver un `fetch` en `query()`: mira [¿fetch o query()?](./query#fetch-o-query).
+
+## Siguientes pasos
+
+- [Tags](./tags): tags planos, la jerarquía de `tags()`, el escapado y los límites.
+- [revalidate](./revalidate): un tag o una clave, y dónde llamarla.
+- [El panel](./panel): tarjetas de fetch y de query, estados y revalidar desde el panel.

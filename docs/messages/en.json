@@ -1,0 +1,81 @@
+{
+  "meta": {
+    "title": "next-query docs",
+    "description": "Tag your native fetch, revalidate it by tag in the Next.js App Router, and see every tagged fetch in a dev panel."
+  },
+  "ui": {
+    "docs": "Docs",
+    "menu": "Menu",
+    "previous": "Previous",
+    "next": "Next",
+    "edit": "Edit this page on GitHub",
+    "theme": "Toggle theme",
+    "language": "Language",
+    "github": "GitHub",
+    "license": "Released under the MIT License.",
+    "demo": "Live demo"
+  },
+  "sections": {
+    "start": "Get started",
+    "guide": "Guide",
+    "reference": "Reference",
+    "project": "Project"
+  },
+  "pages": {
+    "index": {
+      "title": "Introduction",
+      "description": "What next-query is, what you get and when to use it."
+    },
+    "getting-started": {
+      "title": "Getting started",
+      "description": "Install the package, tag a fetch, revalidate it and open the panel."
+    },
+    "query": {
+      "title": "query",
+      "description": "Cache data that isn't fetch (an ORM, an SDK) under a key, with the same tags."
+    },
+    "revalidate": {
+      "title": "revalidate",
+      "description": "Revalidate a tag, or a query key, from server actions and route handlers."
+    },
+    "tags": {
+      "title": "Tags",
+      "description": "Plain cache tags, the tags() hierarchy, escaping and limits."
+    },
+    "panel": {
+      "title": "The panel",
+      "description": "The dev panel: tagged fetches and queries, freshness bars, revalidating and the data of each entry."
+    },
+    "compatibility": {
+      "title": "Compatibility",
+      "description": "What works on Next.js 15 and 16, and what runs where."
+    },
+    "security": {
+      "title": "Security",
+      "description": "What the dev panel exposes, and why it does nothing outside development."
+    },
+    "troubleshooting": {
+      "title": "Troubleshooting & FAQ",
+      "description": "Known limitations and fixes for common problems."
+    },
+    "contributing": {
+      "title": "Contributing",
+      "description": "Monorepo layout, the playground, tests, these docs and releasing."
+    }
+  },
+  "demo": {
+    "title": "Live demo",
+    "description": "The real panel, running on simulated fetches and a query. Revalidate a tag and watch it refetch.",
+    "simulated": "Everything here runs in your browser: the panel is the real UI, fed with simulated entries.",
+    "sidebarCta": "Try the live demo",
+    "store": "Simulated data store",
+    "tryTitle": "Try it",
+    "try": {
+      "revalidateCard": "open the NQ button in the bottom-right corner, then revalidate a fetch with ↻",
+      "revalidatePrefix": "click the `products` tag to revalidate every product",
+      "revalidateAll": "Revalidate all",
+      "bars": "watch the bars count down",
+      "copy": "copy the JSON"
+    }
+  }
+}

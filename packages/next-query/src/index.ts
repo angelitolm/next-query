@@ -1,0 +1,5 @@
+export { query, revalidate, type QueryConfig } from './query.js'
+export { NextQuery, type NextQueryProps } from './NextQuery.js'
+export { tags } from './core.js'
+export type { QueryKey } from './core.js'
+export type { Entry } from './core.js'

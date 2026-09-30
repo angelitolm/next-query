@@ -60,7 +60,7 @@ A `page.tsx` that exports the segment config `export const revalidate = 60` can'
 
 ## Registry (server, dev only)
 
-A `Map<string, Entry>` on `globalThis.__nextQuery`, which survives HMR re-evaluating modules. `query()` writes to it only when `NODE_ENV === 'development'`. In production, `query()` is `unstable_cache` plus tags, with no extra work.
+A `Map<string, Entry>` on `globalThis.__nextQuery` (typed locally, so the package's `.d.ts` declares no globals), which survives HMR re-evaluating modules. `query()` writes to it only when `NODE_ENV === 'development'`. In production, `query()` is `unstable_cache` plus tags, with no extra work.
 
 ```ts
 type Entry = {
@@ -73,7 +73,7 @@ type Entry = {
   runs: number           // fn executions (cache misses)
   lastDurationMs?: number
   error?: string         // last error message, cleared on the next success
-  preview?: string       // JSON of data, cut to ~2 KB
+  preview?: string       // JSON of data, cut to ~16 KB
   lastReadAt: number
 }
 ```
@@ -92,7 +92,7 @@ An internal `'use server'` module exports:
 
 Both throw `Error('next-query devtools are dev-only')` unless `NODE_ENV === 'development'`. A server action is a public endpoint, and without this guard anyone could revalidate the app's cache in production.
 
-Risk, checked first: Next must compile a `'use server'` module that lives in `node_modules`. Fallback if it doesn't: a route handler the user mounts at `app/api/next-query/route.ts`, the same pattern as `@angelitolm/next-toolbar/server`.
+Verified 2026-09-29: a 'use server' module in the package is callable from the package's client component, via workspace link and a real node_modules install, on Next 15.5 and 16.3.6. Verification was done over HTTP: each spike POSTed the `ping` server action (Next-Action header, id from server-reference-manifest.json) to the dev server and got `pong development` back with a 200.
 
 ## `<NextQuery />` (client)
 
@@ -102,10 +102,14 @@ Risk, checked first: Next must compile a `'use server'` module that lives in `no
 - Open state: a panel docked at the bottom.
   - Left, list: key (`["products","1"]`), status badge (fresh / stale / error), "12s ago". Text filter on the key, and sort by updated, status or key.
   - Right, detail: tags, `revalidate`, `dataUpdatedAt`, reads/runs, last duration, error, data preview in a `<pre>`.
-  - Actions: one ↻ per prefix level (`products`, `products/1`), and "Revalidate all" at the top. A server action that calls `revalidateTag` makes Next re-render the current page in the same response, so no `router.refresh()` is needed; the panel reloads its list after the action returns. (Verified in the plan; `router.refresh()` is the fallback.)
+  - Actions: one ↻ per prefix level (`products`, `products/1`), and "Revalidate all" at the top. After an action, the panel calls `router.refresh()` in a transition and reloads its list when the transition ends. (Checked in a browser: the action resolves before the page's re-render finishes, so reloading right after the action reads the registry too early.)
 - Data loads on mount and on route change (for the button's counts), when the panel opens, after each action, and on a manual ↻. No polling.
 - If an action call fails, the panel shows the error with a hint and the page keeps working.
 - Self-contained so a future NextKit can mount it next to `<NextToolbar />`: CSS classes prefixed `nq-`, styles inlined like next-toolbar's `styles.ts`, no assumptions about other overlays.
+
+### Visual design (added 2026-09-29)
+
+The panel follows next-toolbar's visual language (surfaces, launcher circle, rows, tag chips, icons, scrollbars, OS light/dark), recolored with an orange → yellow gradient (`#ff8a3d` → `#ffd23f`). Logo: one mark joining N and Q (the N's gradient diagonal continues as the Q's tail). No native `<select>`: sort is a segmented control. Each query with a numeric `revalidate` shows a freshness bar that counts down the remaining fresh time (full when just fetched, empty once stale) labelled `6s left` or `stale 12s`; `revalidate: false` shows "never stale". When `staleTime` exists later, the bar will measure it instead.
 
 ## Error handling
 

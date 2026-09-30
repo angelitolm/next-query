@@ -1,0 +1,122 @@
+## Install
+
+```bash
+pnpm add @angelitolm/next-query
+```
+
+npm and yarn work the same way (`npm i …`, `yarn add …`). Install it as a regular dependency, not a dev one: `revalidate()`, `tags()` and `query()` run in production too.
+
+## Requirements
+
+| | Minimum |
+|---|---|
+| Next.js | 15, App Router |
+| React | 19 |
+
+## 1. Tag a fetch
+
+In a Server Component, add `next.tags` to a native `fetch`. This is plain Next, and it needs no import:
+
+```tsx title="app/products/page.tsx"
+export default async function Page() {
+  const res = await fetch(`${API}/products`, { next: { tags: ['products'], revalidate: 60 } })
+  const products: { id: number; name: string }[] = await res.json()
+  return (
+    <ul>
+      {products.map((p) => (
+        <li key={p.id}>{p.name}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+`revalidate` is the number of seconds until the data is stale and refetched on the next read; to cache the fetch, set `next.revalidate` (seconds) or `cache: 'force-cache'`; a fetch with neither may not be cached.
+
+## 2. Revalidate it
+
+Call `revalidate()` from a Server Action after you change the data:
+
+```ts title="app/actions.ts"
+'use server'
+import { revalidate } from '@angelitolm/next-query'
+
+export async function renameProduct(id: string, name: string) {
+  await db.rename(id, name)
+  revalidate('products') // revalidateTag('products', { expire: 0 })
+}
+```
+
+Use it from a form:
+
+```tsx title="app/products/[id]/rename-form.tsx"
+import { renameProduct } from '@/app/actions'
+
+export function RenameForm({ id }: { id: string }) {
+  return (
+    <form
+      action={async (data) => {
+        'use server'
+        await renameProduct(id, String(data.get('name')))
+      }}
+    >
+      <input name="name" />
+      <button>Rename</button>
+    </form>
+  )
+}
+```
+
+`revalidate('products')` expires exactly the tag `products`. Call it from Server Actions and route handlers.
+
+To revalidate one product and not the whole list, tag the fetch with the optional `tags()` helper (`fetch(url, { next: { tags: tags(['products', id]) } })`) and call `revalidate(['products', id])`. See [Tags](./tags).
+
+## 3. Add the panel
+
+```tsx title="app/layout.tsx"
+import { NextQuery } from '@angelitolm/next-query'
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        {children}
+        <NextQuery />
+      </body>
+    </html>
+  )
+}
+```
+
+Put it in the **root** layout so it survives navigation. Use `position="bottom-left"` to move it.
+
+## 4. Run it
+
+```bash
+pnpm dev
+```
+
+Open a page that runs the tagged fetch. A round launcher with the logo appears in the bottom-right corner; open it to see the URL, its status, a freshness bar and the response. Click ↻ on a card to revalidate the fetch's tags.
+
+<Callout type="note" title="A fetch appears once it has run">
+  The panel reads Next's fetch cache, so a fetch is listed after it has run and been cached. Visit the page that makes it first. A fetch with no `next.tags` is not listed: the panel only counts it and reminds you to add tags.
+</Callout>
+
+## Data that isn't fetch
+
+Tag `fetch` directly. Everything that doesn't go through Next's `fetch` goes through `query()`:
+
+| Your data comes from | Use |
+|---|---|
+| `fetch()` | `fetch(url, { next: { tags, revalidate } })` |
+| axios, got | `query(['products'], async () => (await axios.get(url)).data)` |
+| Prisma, Drizzle, a database driver | `query(['products', id], () => prisma.product.findUnique({ where: { id } }))` |
+| An SDK (Stripe, S3, a CMS) | `query(['prices'], async () => (await stripe.prices.list()).data)` |
+
+Examples for each case, and why you shouldn't wrap a `fetch` in `query()`: see [fetch or query()?](./query#fetch-or-query).
+
+## Next steps
+
+- [Tags](./tags): plain tags, the `tags()` hierarchy, escaping and limits.
+- [revalidate](./revalidate): a tag or a key, and where to call it.
+- [The panel](./panel): fetch and query cards, statuses and revalidating from the panel.

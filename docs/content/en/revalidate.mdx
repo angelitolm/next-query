@@ -1,0 +1,66 @@
+`revalidate()` expires a tag, so the next read of anything that carries it runs again.
+
+## Signature
+
+```ts title="@angelitolm/next-query"
+function revalidate(key: QueryKey | string): void
+```
+
+- A **string** is a tag: `revalidate('products')` expires exactly the tag `products`. It must be 1 to 256 characters, otherwise it throws a `TypeError`.
+- A **key** (an array) expires the key's deepest tag: `revalidate(['products', 1])` is `revalidate('products/1')`.
+
+Both call `revalidateTag(tag, { expire: 0 })`.
+
+```ts title="app/actions.ts"
+'use server'
+import { revalidate } from '@angelitolm/next-query'
+
+export async function renameProduct(id: string, name: string) {
+  await db.rename(id, name)
+  revalidate('products') // every fetch and query that carries the tag 'products'
+}
+```
+
+## Tag semantics
+
+`revalidate` expires one tag, and every entry that carries that tag. Which entries carry it is up to how you tagged them:
+
+| Tagged with | `revalidate('products')` | `revalidate(['products', 1])` |
+|---|---|---|
+| `['products']` | yes | no |
+| `tags(['products', 1])`, that is `['products', 'products/1']` | yes | yes |
+| `tags(['products', 2])`, that is `['products', 'products/2']` | yes | no |
+
+Tag from general to specific with [`tags()`](./tags) and one call can refresh a whole branch.
+
+## Where to call it
+
+Call it from **server actions** and **route handlers**, after you have changed the data. Next does not allow revalidating while a page renders.
+
+```ts title="app/api/products/route.ts"
+import { revalidate } from '@angelitolm/next-query'
+
+export async function POST(request: Request) {
+  await db.create(await request.json())
+  revalidate('products')
+  return Response.json({ ok: true })
+}
+```
+
+An invalid key throws the same `TypeError` as `query()`.
+
+## Under the hood
+
+`revalidate()` calls `revalidateTag(<the tag>, { expire: 0 })`. `expire: 0` expires the entry right away on Next 16; on Next 15, `revalidateTag` takes no second argument and ignores it. The same code works on both.
+
+## The name clash with `export const revalidate`
+
+A page can export a route segment option called `revalidate`. If you import `revalidate` from next-query into the same file, the two collide (`the name 'revalidate' is already declared`). Rename the import:
+
+```tsx title="app/products/page.tsx"
+import { revalidate as revalidateQuery } from '@angelitolm/next-query'
+
+export const revalidate = 60
+```
+
+The segment option and the library function are unrelated. In files without that export, the plain name is fine.

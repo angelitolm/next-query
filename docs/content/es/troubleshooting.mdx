@@ -1,0 +1,47 @@
+## Mi fetch no aparece en el panel
+
+El panel lista un `fetch` nativo cuando se cumple todo esto:
+
+- **Tiene tags.** Añade `next: { tags: ['products'] }`. Un fetch en caché sin tags no aparece: el panel lo cuenta y muestra un aviso al final de la lista.
+- **Está en caché.** Un fetch sin `revalidate` y sin `cache: 'force-cache'` puede no cachearse. Un fetch dentro de una función o componente con `'use cache'` no se lee de la caché de fetch, así que no aparece. Tampoco uno que Next no cacheó, como uno con `cache: 'no-store'`.
+- **Se ha ejecutado.** El panel lista un fetch después de que se ejecute y quede en caché. Visita la página que lo hace.
+
+Comprueba también que `<NextQuery />` esté en el layout **raíz** y que estés ejecutando `next dev`. Un `distDir` personalizado no está soportado: el panel lee `.next`.
+
+## Mi query no aparece en el panel
+
+Una query aparece después de ejecutarse una vez desde que arrancó el servidor de desarrollo. Visita la página que la llama. Si la lista sigue vacía, comprueba que `<NextQuery />` esté en el layout **raíz** y que estés ejecutando `next dev`, porque en cualquier otro caso el panel no renderiza nada.
+
+## Un Date volvió como string
+
+`query()` guarda su resultado con `unstable_cache`, que guarda JSON. Un `Date` vuelve como string ISO cuando hay un acierto de caché. Devuelve datos planos y conviértelos después de leer:
+
+```ts title="app/page.tsx"
+const row = await query(['events', 1], () => db.event(1))
+const at = new Date(row.at)
+```
+
+## La página sigue mostrando datos viejos después de revalidar
+
+Hay dos casos:
+
+- Con una ventana de `revalidate`, una entrada expirada se sirve una vez más como obsoleta mientras se vuelve a pedir en segundo plano, y la siguiente petición recibe los datos nuevos.
+- Para ver datos frescos en la página actual, llama a `revalidate()` desde una server action o un route handler después de escribir. Eso expira el tag al momento, y la action refresca la página que la lanzó.
+
+## `revalidate` ya está declarado
+
+Importaste `revalidate` de next-query en un archivo que también tiene `export const revalidate`. Renombra la importación:
+
+```ts
+import { revalidate as revalidateQuery } from '@angelitolm/next-query'
+```
+
+Mira [revalidate](./revalidate).
+
+## TypeError: key segments must be…
+
+La clave incumplió una regla: debe ser un array no vacío de strings no vacíos o números finitos. Las causas habituales son un id `undefined`, un string vacío o `NaN`. La lista completa, con los límites de tags, está en [Tags](./tags).
+
+## El panel no se renderiza, o dice "next-query devtools are dev-only"
+
+El panel es solo de desarrollo. Con `next start` o una build de producción, `<NextQuery />` no renderiza ningún panel, y sus server actions se niegan a ejecutarse si algo las llama. Es lo esperado. `query()`, `revalidate()` y `tags()` siguen funcionando; mira [Seguridad](./security).

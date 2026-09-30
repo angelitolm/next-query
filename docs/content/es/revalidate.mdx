@@ -1,0 +1,66 @@
+`revalidate()` expira un tag, de modo que la siguiente lectura de todo lo que lo lleve vuelve a ejecutarse.
+
+## Firma
+
+```ts title="@angelitolm/next-query"
+function revalidate(key: QueryKey | string): void
+```
+
+- Un **string** es un tag: `revalidate('products')` expira exactamente el tag `products`. Debe tener de 1 a 256 caracteres; si no, lanza un `TypeError`.
+- Una **clave** (un array) expira el tag más profundo de la clave: `revalidate(['products', 1])` es `revalidate('products/1')`.
+
+Ambas llaman a `revalidateTag(tag, { expire: 0 })`.
+
+```ts title="app/actions.ts"
+'use server'
+import { revalidate } from '@angelitolm/next-query'
+
+export async function renameProduct(id: string, name: string) {
+  await db.rename(id, name)
+  revalidate('products') // cada fetch y query que lleve el tag 'products'
+}
+```
+
+## Semántica de los tags
+
+`revalidate` expira un tag, y todas las entradas que lo llevan. Qué entradas lo llevan depende de cómo las etiquetaste:
+
+| Etiquetada con | `revalidate('products')` | `revalidate(['products', 1])` |
+|---|---|---|
+| `['products']` | sí | no |
+| `tags(['products', 1])`, es decir `['products', 'products/1']` | sí | sí |
+| `tags(['products', 2])`, es decir `['products', 'products/2']` | sí | no |
+
+Etiqueta de lo general a lo específico con [`tags()`](./tags) y una sola llamada puede refrescar una rama entera.
+
+## Dónde llamarla
+
+Llámala desde **server actions** y **route handlers**, después de cambiar los datos. Next no permite revalidar mientras se renderiza una página.
+
+```ts title="app/api/products/route.ts"
+import { revalidate } from '@angelitolm/next-query'
+
+export async function POST(request: Request) {
+  await db.create(await request.json())
+  revalidate('products')
+  return Response.json({ ok: true })
+}
+```
+
+Una clave inválida lanza el mismo `TypeError` que `query()`.
+
+## Por debajo
+
+`revalidate()` llama a `revalidateTag(<el tag>, { expire: 0 })`. `expire: 0` expira la entrada al instante en Next 16; en Next 15, `revalidateTag` no recibe segundo argumento y lo ignora. El mismo código funciona en ambos.
+
+## El choque de nombres con `export const revalidate`
+
+Una página puede exportar una opción de segmento de ruta llamada `revalidate`. Si importas `revalidate` de next-query en ese mismo archivo, los dos nombres chocan (`the name 'revalidate' is already declared`). Renombra la importación:
+
+```tsx title="app/products/page.tsx"
+import { revalidate as revalidateQuery } from '@angelitolm/next-query'
+
+export const revalidate = 60
+```
+
+La opción de segmento y la función de la librería no tienen relación. En archivos sin ese export, el nombre normal sirve.

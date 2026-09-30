@@ -1,0 +1,74 @@
+The panel is a development tool. It lists the tagged `fetch` calls in your app and the `query()` calls that have run, shows how fresh each one is and revalidates any of them with one click. Try it in the [live demo](./demo).
+
+## Mount it
+
+Put it once in the root layout:
+
+```tsx title="app/layout.tsx"
+import { NextQuery } from '@angelitolm/next-query'
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        {children}
+        <NextQuery position="bottom-left" />
+      </body>
+    </html>
+  )
+}
+```
+
+`position` is `'bottom-right'` (the default) or `'bottom-left'`. Outside `next dev` it renders nothing.
+
+## Where the entries come from
+
+- **Fetches**: the panel reads Next's fetch cache on disk, so it lists every native `fetch` that has a tag in `next.tags` and has been cached. A fetch appears after it has run once.
+- **Queries**: every [`query()`](./query) that has run since the dev server started.
+
+A fetch with no tags is not listed. The panel counts those instead, and shows a hint at the bottom of the list: "N cached fetches have no tags. Add `next: { tags }` to see them here."
+
+## The launcher
+
+A round button with the logo sits in the corner. A bubble on it counts the entries that are **stale plus those with an error**. When everything is fresh, a gradient dot shows instead. Click it to open the panel.
+
+## The header
+
+- Counts: how many entries, how many stale, how many with an error.
+- **Filter by label or tag**: matches the label (the URL of a fetch, the key of a query) and the tags, for example `products`.
+- **Sort**: Updated (most recent first, the default), Status (errors, then stale, then fresh) or Label (a parent key right before its children).
+- **Revalidate all**: revalidates every tag in the list (the filter does not narrow it), sent in batches of 128.
+- **Reload list**: fetches the list again. It does not revalidate anything.
+- Close.
+
+## Cards
+
+Each entry is a card with:
+
+- A **QUERY** or **FETCH** badge.
+- Its **label**: the URL of a fetch (host and path, cut in the middle when long), or the JSON key of a query.
+- A **status pill**: `fresh` (lime to cyan), `stale` or `error`.
+- A **freshness bar** that counts down to stale, with a label such as `6S LEFT` or `STALE 12S`. An entry without a `revalidate` window shows "never stale", since it is kept until revalidated.
+- A **↻** button. On a fetch it revalidates the fetch's most specific (leaf) tags; on a query, the key's deepest tag. Its tooltip names the tags. To revalidate every product, click the `products` chip in the detail view.
+
+## Revalidated state
+
+Right after you revalidate, the data has not been refetched yet: Next refetches it on the next read. Until the page reads it again, the entry shows the `stale` status and a "revalidated · refetches on next read" label. Once the data is read again, the entry goes back to `fresh`.
+
+## Detail
+
+Select a card to see its detail:
+
+- A **Revalidate** button, the same as the card's ↻.
+- For a fetch: URL, Status, Revalidate (the window, or `never`), Updated (when Next stored it) and Tags.
+- For a query: Status, Revalidate, Updated, Reads / runs and Last run (how long `fn` took), and Tags.
+- **Tags**: every tag is a chip, and clicking one revalidates that tag. Click `products` and every entry that carries it refreshes.
+- The **response** of a fetch, or the **data** of a query, as highlighted JSON, up to the first 16 KB and marked as truncated beyond that. A response that isn't JSON is shown as text. **Copy** puts it on your clipboard.
+
+If a query's `fn` threw, the error message shows above the data.
+
+<Callout type="note" title="An entry appears once it has run">
+  A fetch or a query shows up once it has run. Queries are listed since the dev server started, so after you restart `next dev` they are empty until you visit the pages again.
+</Callout>
+
+Next: [Security](./security) explains what the panel exposes and what it does not.

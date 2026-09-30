@@ -1,0 +1,79 @@
+Un tag es un string plano que Next asocia a una entrada de caché, y [`revalidate()`](./revalidate) expira por él. Puedes etiquetar un `fetch` nativo con cualquier string, y `tags()` construye una jerarquía de tags a partir de una clave cuando quieres una. Esta página tiene las reglas exactas.
+
+## Tags planos
+
+Etiqueta un fetch con `next.tags`. No hay prefijo ni espacio de nombres: el tag que escribes es el que Next guarda.
+
+```ts
+fetch(`${API}/products`, { next: { tags: ['products'], revalidate: 60 } })
+revalidate('products') // expira el tag 'products'
+```
+
+## La jerarquía de tags()
+
+`tags(key)` convierte una clave en un tag por segmento. Los segmentos se unen con `/`:
+
+| Llamada | Devuelve |
+|---|---|
+| `tags('products')` | `['products']` |
+| `tags(['products', 1])` | `['products', 'products/1']` |
+| `tags(['products', 1, 'reviews'])` | `['products', 'products/1', 'products/1/reviews']` |
+
+Para jerarquías pasa un array: `tags('products/1')` es UN segmento (`products%2F1`); usa `tags(['products', 1])`.
+
+Úsala en el fetch:
+
+```ts
+import { tags } from '@angelitolm/next-query'
+
+fetch(`${API}/products/${id}`, { next: { tags: tags(['products', id]) } })
+```
+
+Cada producto lleva el tag `products`, así que `revalidate('products')` llega a todos, y `revalidate(['products', 1])` llega solo al producto 1. Así un tag cubre una rama entera.
+
+`revalidate(key)` con un array expira el tag **más profundo** de la clave, igual que `revalidate(tags(key).at(-1))`. Por eso `revalidate('products/1')` equivale a `revalidate(['products', 1])`.
+
+`query()` etiqueta su entrada con `tags(key)`, así que una query y un fetch comparten el mismo esquema. Mira [query](./query).
+
+## Reglas de la clave
+
+`tags()` y `query()` validan la clave, y `revalidate()` la valida cuando le pasas un array:
+
+- La clave es un **array no vacío**. En `tags()`, un string es la forma corta de una clave de un solo segmento.
+- Cada segmento es un **string no vacío** o un **número finito**. `NaN`, `Infinity`, `''`, `null`, objetos y booleanos lanzan un `TypeError`.
+
+```ts title="Claves válidas e inválidas"
+tags(['products'])               // ok
+tags(['products', 1, 'reviews']) // ok
+tags([])                         // TypeError: key must be a non-empty array
+tags(['products', ''])           // TypeError: key segments must be non-empty strings or finite numbers
+tags(['products', NaN])          // TypeError
+```
+
+`['products', 1]` y `['products', '1']` dan los mismos tags. Como claves de `query()` son **entradas de caché distintas**, porque una query se identifica por el JSON de su clave.
+
+## Escapado
+
+`/` separa segmentos dentro de un tag, así que se escapa cuando aparece dentro de uno: `/` pasa a ser `%2F` y `%` pasa a ser `%25`. Así se mantienen separadas claves que de otro modo chocarían:
+
+| Clave | Tags |
+|---|---|
+| `['a/b']` | `['a%2Fb']` |
+| `['a', 'b']` | `['a', 'a/b']` |
+
+Por eso `['a/b']` y `['a', 'b']` no tienen relación, y `revalidate(['a'])` no llega a `['a/b']`.
+
+## Límites
+
+Next limita los tags de una entrada de caché. `tags()`, `query()` y `revalidate()` comprueban ambos límites de antemano y lanzan un `TypeError`:
+
+- **256 caracteres** por tag. Cuentan los segmentos largos y el escapado. Un string que pases a `revalidate()` debe tener de 1 a 256 caracteres.
+- **128 tags** por entrada. Una clave genera un tag por segmento, así que una clave puede tener como máximo **128 segmentos**.
+
+<Callout type="note" title="Mantén las claves cortas y estructuradas">
+  Una clave como `['posts', slug]` es un nombre, no una carga de datos. Pon un valor en la clave solo cuando cambie lo que son los datos.
+</Callout>
+
+## Revalidar todo
+
+**Revalidate all** en [el panel](./panel) revalida cada tag de la lista (el filtro no la reduce), en lotes de 128. No toca un tag que ninguna entrada de la lista lleve.

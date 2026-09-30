@@ -1,0 +1,41 @@
+## Layout
+
+This is a pnpm workspace:
+
+| Folder | What |
+|---|---|
+| `packages/next-query` | The library (`@angelitolm/next-query`) and its unit tests |
+| `playground` | A Next app that uses the built library, and the smoke test |
+| `docs` | This site |
+
+## Get started
+
+You need Node 22.18 or newer and pnpm.
+
+```bash
+pnpm install
+pnpm dev     # package watch, playground (3100) and docs (3200)
+pnpm test    # unit tests
+pnpm build   # builds the package
+```
+
+The playground runs at `http://localhost:3100`.
+
+## Smoke test
+
+The smoke test starts a real Next app and checks caching and revalidation by tag (for a tagged native fetch and for `query()`) and the panel's server actions, against the Next version installed in the playground. In production it also checks that the client bundle has no panel:
+
+```bash
+pnpm --filter playground smoke        # next dev
+pnpm --filter playground smoke:prod   # next build and next start
+```
+
+CI runs both against a matrix of Next versions (see [Compatibility](./compatibility)). Next 16 refuses a second `next dev` in the same folder, so stop your own playground before running the smoke.
+
+## Commits
+
+Use conventional commits: `feat:`, `fix:`, `docs:`, `test:`, `chore:`.
+
+## Docs
+
+Pages live in `docs/content/<locale>/<slug>.mdx`. Keep both locales (`en` and `es`) in sync: when you change a page, change its twin, and check that `pnpm --filter docs build` passes.

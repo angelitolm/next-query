@@ -1,0 +1,63 @@
+'use server'
+// The panel's transport. A server action is a public endpoint, so each one refuses to run
+// outside `next dev`, and the input from the browser is validated before use.
+import { revalidateTag } from 'next/cache'
+import { existsSync } from 'node:fs'
+import { readdir, readFile, stat } from 'node:fs/promises'
+import { join } from 'node:path'
+import { DEV_ONLY, markRevalidated, newestPerUrl, parseFetchCacheFile, revalidatedTags, snapshot, validateTags, type Entry } from './core.js'
+
+function assertDev() {
+  if (process.env.NODE_ENV !== 'development') throw new Error(DEV_ONLY)
+}
+
+async function walkFiles(dir: string): Promise<string[]> {
+  let items
+  try {
+    items = await readdir(dir, { withFileTypes: true })
+  } catch {
+    return []
+  }
+  const nested = await Promise.all(items.map((i) => (i.isDirectory() ? walkFiles(join(dir, i.name)) : [join(dir, i.name)])))
+  return nested.flat()
+}
+
+// Next 16.3+ dev writes .next/dev/cache/fetch-cache, older versions .next/cache/fetch-cache. On 16.3+ the second
+// folder holds `next build` output the dev server never reads, so only the first folder that exists counts.
+async function readFetchCache(): Promise<{ entries: Entry[]; untagged: number }> {
+  const entries: Entry[] = []
+  const untaggedUrls = new Set<string>()
+  let files: string[] = []
+  for (const dir of ['.next/dev/cache/fetch-cache', '.next/cache/fetch-cache']) {
+    if (!existsSync(join(process.cwd(), dir))) continue
+    files = await walkFiles(join(process.cwd(), dir))
+    break
+  }
+  for (const file of files) {
+    try {
+      const [text, info] = await Promise.all([readFile(file, 'utf8'), stat(file)])
+      const parsed = parseFetchCacheFile(JSON.parse(text), info.mtimeMs)
+      if (parsed.entry) entries.push(parsed.entry)
+      else if (parsed.untagged) untaggedUrls.add(parsed.untagged)
+    } catch {
+      // unreadable or half-written file
+    }
+  }
+  return { entries: newestPerUrl(entries), untagged: untaggedUrls.size }
+}
+
+export async function getEntries(): Promise<{ entries: Entry[]; untagged: number }> {
+  assertDev()
+  const fetched = await readFetchCache()
+  return { entries: markRevalidated([...snapshot(), ...fetched.entries], revalidatedTags()), untagged: fetched.untagged }
+}
+
+export async function revalidateTags(tags: unknown): Promise<void> {
+  assertDev()
+  validateTags(tags)
+  const now = Date.now()
+  for (const tag of new Set(tags)) {
+    revalidateTag(tag, { expire: 0 })
+    revalidatedTags()[tag] = now
+  }
+}

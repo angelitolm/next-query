@@ -1,0 +1,25 @@
+## Next.js
+
+Cada versión de la tabla ejecuta la app playground real en CI, tanto con `next dev` como con la build de producción (`next build` y `next start`). El smoke test comprueba la caché, la revalidación por tag (de un fetch nativo etiquetado y de `query()`) y las server actions del panel.
+
+| Next.js | Estado |
+|---|---|
+| 15.0.x (15.0.4) | Probada en CI, desarrollo y producción |
+| 15.5 | Probada en CI, desarrollo y producción |
+| 16.0 | Probada en CI, desarrollo y producción |
+| latest | Probada en CI, desarrollo y producción |
+| canary | Probada en cada push a main, cada pull request y cada semana, sin bloquear |
+
+Que canary falle es un aviso, no un bloqueo: se ejecuta en cada push a main y cada pull request, además de cada lunes, para que los cambios salgan a la luz antes de que los vean los usuarios.
+
+## Todo lo demás
+
+| | |
+|---|---|
+| React | 19 |
+| Router | Solo App Router. El Pages Router no está soportado. |
+| Node | 22.18 o superior, para desarrollar este repo |
+
+## Sobre qué está construido
+
+Los tags son los tags de caché propios de Next, aplicados a tu `fetch` nativo con `next.tags`, y `revalidate()` llama a `revalidateTag`. `query()` está construido sobre `unstable_cache`. Nada usa `'use cache'` ni necesita `cacheComponents`, así que funciona tengas o no activadas esas opciones en tu app. El panel lista solo los fetches que pasan por la caché de fetch, así que un fetch dentro de `'use cache'` no aparece.

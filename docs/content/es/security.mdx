@@ -1,0 +1,22 @@
+## Qué se ejecuta en producción
+
+`query()`, `revalidate()` y `tags()`. Ellas son la librería. Todo lo demás del paquete es para desarrollo.
+
+El componente de demo `NextQueryDemo` vive en `@angelitolm/next-query/demo`, no en la raíz del paquete. Se renderiza en producción solo con las entradas que le pasas y nunca llama al servidor, así que no necesita guarda de desarrollo. Está pensado para docs y demos.
+
+## El panel es solo de desarrollo
+
+- El registro de queries que alimenta el panel existe únicamente en `next dev`. En una build de producción, el código que lo llena se elimina.
+- El panel lee los archivos de caché de `.next` (la caché de fetch de Next) y muestra vistas previas de respuestas solo en desarrollo.
+- `<NextQuery />` renderiza `null` fuera de desarrollo y se elimina con tree-shaking, así que el **bundle de cliente de producción no contiene código del panel**. El smoke test de producción del playground lo comprueba en cada ejecución de producción.
+- El panel habla con el servidor mediante server actions. Una server action es un **endpoint público**, como cualquier otra. Cada una lanza `next-query devtools are dev-only` fuera de desarrollo, y los tags que envía el navegador se validan antes de usarse.
+
+<Callout type="warning" title="next dev escucha en tu red">
+  Mientras `next dev` está en marcha, cualquiera que pueda alcanzarlo (normalmente, todos en tu LAN) puede leer vistas previas de las respuestas de tus fetches en caché y de los datos de tus queries, de hasta unos 16 KB cada una, y revalidar tags. Es la misma exposición que tiene `next dev` por sí mismo. No lo ejecutes en una red que no sea de confianza, y nunca expongas un servidor de desarrollo a internet.
+</Callout>
+
+## Qué tener en cuenta
+
+- Las URLs de los fetch, incluidas las query strings (que pueden llevar claves), también se envían al panel durante el desarrollo.
+- Una vista previa es el cuerpo de la respuesta de un fetch etiquetado, o los datos de una query, como JSON o texto. Si es algo privado, aparece en el panel durante el desarrollo.
+- Revalidar es inofensivo por diseño: expira datos cacheados, y la siguiente lectura los vuelve a pedir.
