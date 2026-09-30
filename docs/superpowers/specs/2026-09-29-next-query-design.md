@@ -52,7 +52,7 @@ await revalidate(['products', id])  // just that product (and its children)
 
 ### Tags
 
-`keyToTags(['products', 1])` → `['nq:products', 'nq:products/1']`. Each prefix is its own tag, so revalidating a prefix hits every descendant. Segments are stringified and `/` inside a segment is escaped (`%2F`) so `['a/b']` never collides with `['a', 'b']`.
+`keyToTags(['products', 1])` → `['nq', 'nq:products', 'nq:products/1']`. Each prefix is its own tag, so revalidating a prefix hits every descendant. The root tag `nq` is on every query so the panel's "Revalidate all" is one `revalidateTag('nq')`. Empty-string segments are rejected. Segments are stringified and `/` inside a segment is escaped (`%2F`) so `['a/b']` never collides with `['a', 'b']`.
 
 ### Name clash to document
 
@@ -87,7 +87,8 @@ Known limit: the registry is in memory. A query shows up in the panel only after
 An internal `'use server'` module exports:
 
 - `getQueries(): Entry[]` returns a snapshot of the registry.
-- `revalidateQuery(key)` calls `revalidate(key)`.
+- `revalidateQuery(key)` validates the key (it comes from the browser) and calls `revalidate(key)`.
+- `revalidateAll()` calls `revalidateTag('nq', { expire: 0 })`.
 
 Both throw `Error('next-query devtools are dev-only')` unless `NODE_ENV === 'development'`. A server action is a public endpoint, and without this guard anyone could revalidate the app's cache in production.
 
@@ -101,8 +102,8 @@ Risk, checked first: Next must compile a `'use server'` module that lives in `no
 - Open state: a panel docked at the bottom.
   - Left, list: key (`["products","1"]`), status badge (fresh / stale / error), "12s ago". Text filter on the key, and sort by updated, status or key.
   - Right, detail: tags, `revalidate`, `dataUpdatedAt`, reads/runs, last duration, error, data preview in a `<pre>`.
-  - Actions: one ↻ per prefix level (`products`, `products/1`), and "Revalidate all" at the top. After an action, `router.refresh()` so the current page re-renders with fresh data.
-- Data loads when the panel opens, after each action, and on a manual ↻. No polling.
+  - Actions: one ↻ per prefix level (`products`, `products/1`), and "Revalidate all" at the top. A server action that calls `revalidateTag` makes Next re-render the current page in the same response, so no `router.refresh()` is needed; the panel reloads its list after the action returns. (Verified in the plan; `router.refresh()` is the fallback.)
+- Data loads on mount and on route change (for the button's counts), when the panel opens, after each action, and on a manual ↻. No polling.
 - If an action call fails, the panel shows the error with a hint and the page keeps working.
 - Self-contained so a future NextKit can mount it next to `<NextToolbar />`: CSS classes prefixed `nq-`, styles inlined like next-toolbar's `styles.ts`, no assumptions about other overlays.
 
