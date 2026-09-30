@@ -1,7 +1,7 @@
 import { NextQuery } from '@angelitolm/next-query'
 import Link from 'next/link'
 
-const links = ['/', '/products', '/products/1', '/products/2']
+const links = ['/', '/products', '/products/1', '/products/2', '/native']
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

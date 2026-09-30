@@ -1,5 +1,5 @@
 // Smoke test against the installed Next version: starts `next dev` and checks that query()
-// caches, revalidate() expires by prefix, and the package's server actions compile and run.
+// caches, revalidate() expires by tag, and the package's server actions compile and run.
 // Run: pnpm --filter playground smoke
 import { spawn, spawnSync, execSync } from 'node:child_process'
 import { readFileSync, readdirSync, rmSync } from 'node:fs'
@@ -24,6 +24,17 @@ if (prod) {
     console.error(`SMOKE FAIL (next ${version}${mode}): next build exited ${build.status}`)
     process.exit(1)
   }
+}
+if (prod) {
+  // The panel must not ship to apps that only mount <NextQuery />: no panel string in the client bundle.
+  const walkStatic = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((i) => (i.isDirectory() ? walkStatic(join(dir, i.name)) : [join(dir, i.name)]))
+  const leaked = walkStatic(fileURLToPath(new URL('./.next/static', import.meta.url))).filter((f) => readFileSync(f, 'utf8').includes('Filter by key'))
+  if (leaked.length) {
+    console.error(`SMOKE FAIL (next ${version}${mode}): the panel is in the client bundle: ${leaked.join(', ')}`)
+    process.exit(1)
+  }
+  console.log('production client bundle has no panel')
 }
 const server = spawn(process.execPath, [...next, prod ? 'start' : 'dev', '--port', String(PORT)], {
   cwd: new URL('.', import.meta.url),
@@ -85,7 +96,13 @@ await revalidate('products')
 if ((await fetchedAt('/products')) === list1) fail("revalidate('products') did not refetch /products")
 if ((await fetchedAt('/products/1')) === one1) fail("revalidate('products') did not refetch /products/1")
 
-// 4. The package's server action compiles and runs: find getQueries' id in Next's manifest and
+// 3b. A native fetch (no query()): cached on a second read, refetched after revalidate('native').
+const native1 = await fetchedAt('/native')
+if ((await fetchedAt('/native')) !== native1) fail('/native refetched on the second read (not cached)')
+await revalidate('native')
+if ((await fetchedAt('/native')) === native1) fail("revalidate('native') did not refetch /native")
+
+// 4. The package's server action compiles and runs: find getEntries' id in Next's manifest and
 // call it the way the browser does. The layout mounts <NextQuery />, so / has compiled it.
 const home = await (await fetch(`${BASE}/`)).text()
 // Next 15.0's webpack dev registers actions used by client components only once their client chunks compile, i.e. when a browser requests them.
@@ -113,12 +130,12 @@ const findAction = (): string | undefined => {
   for (const path of manifests) {
     const raw = readFileSync(path, 'utf8')
     // Next 15.0 has no exportedName: the id/name pairs only appear URL-encoded in each worker's moduleId.
-    const legacy = raw.match(/%22([0-9a-f]{20,})%22%2C%22getQueries%22/)?.[1]
+    const legacy = raw.match(/%22([0-9a-f]{20,})%22%2C%22getEntries%22/)?.[1]
     if (legacy) return legacy
     const manifest = JSON.parse(raw)
     for (const runtime of ['node', 'edge']) {
       for (const [id, entry] of Object.entries<{ exportedName?: string }>(manifest[runtime] ?? {})) {
-        if (entry.exportedName === 'getQueries') return id
+        if (entry.exportedName === 'getEntries') return id
       }
     }
   }
@@ -145,15 +162,17 @@ if (prod) {
   if (!ids.length) fail(`no server actions in any server-reference-manifest.json (${manifests.length} found)`)
   for (const id of ids) {
     const { ok, flight } = await post(id)
-    if (ok && flight.includes('nq:products')) fail(`action ${id} returned the registry in production: ${flight.slice(0, 200)}`)
+    if (ok && (flight.includes('"entries"') || flight.includes('/api/now'))) fail(`action ${id} returned the registry in production: ${flight.slice(0, 200)}`)
   }
   console.log(`dev-only actions refused in production (${ids.length} action${ids.length === 1 ? '' : 's'} called)`)
 } else {
-  if (!actionId) fail(`getQueries not in any server-reference-manifest.json (${manifests.length} found)`)
+  if (!actionId) fail(`getEntries not in any server-reference-manifest.json (${manifests.length} found)`)
   const { ok, status, flight } = await post(actionId)
-  if (!ok) fail(`getQueries action -> ${status}: ${flight.slice(0, 200)}`)
-  if (!flight.includes('nq:products')) fail(`getQueries returned no products entry: ${flight.slice(0, 200)}`)
-  console.log('getQueries action OK')
+  if (!ok) fail(`getEntries action -> ${status}: ${flight.slice(0, 200)}`)
+  // A query() entry and a native fetch entry, both listed.
+  if (!flight.includes('products')) fail(`getEntries returned no products entry: ${flight.slice(0, 200)}`)
+  if (!flight.includes('/api/now')) fail(`getEntries returned no /api/now fetch entry: ${flight.slice(0, 200)}`)
+  console.log('getEntries action OK')
 }
 
 console.log(`SMOKE OK (next ${version}${mode}): cache + revalidate + actions${prod ? ' refused' : ''}`)
