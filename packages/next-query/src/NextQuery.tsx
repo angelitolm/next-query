@@ -88,6 +88,7 @@ function Panel({ position = 'bottom-right' }: NextQueryProps) {
     }
   }
   const pending = busy || refreshing
+  const revalidateKey = (key: QueryKey) => act(() => revalidateQuery(key))
 
   if (!root) return null
 
@@ -133,7 +134,7 @@ function Panel({ position = 'bottom-right' }: NextQueryProps) {
             <button className="text-btn primary" onClick={() => act(revalidateAll)} disabled={pending} title="revalidate every query">
               Revalidate all
             </button>
-            <button className="icon-btn" onClick={load} disabled={pending} title="Reload the list" aria-label="Reload the list">
+            <button className="icon-btn" onClick={load} disabled={pending} title="Reload list (doesn't revalidate)" aria-label="Reload list">
               <Refresh2 size={18} />
             </button>
             <button className="icon-btn" onClick={() => setOpen(false)} title="Close" aria-label="Close next-query">
@@ -146,11 +147,11 @@ function Panel({ position = 'bottom-right' }: NextQueryProps) {
               {shown.length === 0 && <li className="empty">No queries yet. A query shows up after query() runs once.</li>}
               {shown.map((r) => (
                 <li key={r.hash}>
-                  <Card row={r} now={now} selected={r.hash === current?.hash} onSelect={() => setSelected(r.hash)} />
+                  <Card row={r} now={now} selected={r.hash === current?.hash} busy={pending} onSelect={() => setSelected(r.hash)} onRevalidate={revalidateKey} />
                 </li>
               ))}
             </ul>
-            {current && <Detail row={current} now={now} busy={pending} onRevalidate={(key) => act(() => revalidateQuery(key))} onError={setError} />}
+            {current && <Detail row={current} now={now} busy={pending} onRevalidate={revalidateKey} onError={setError} />}
           </div>
         </section>
       ) : (
@@ -178,23 +179,42 @@ const SORTS: [Sort, string][] = [
   ['key', 'Key'],
 ]
 
-function Card({ row, now, selected, onSelect }: { row: Row; now: number; selected: boolean; onSelect: () => void }) {
+type CardProps = { row: Row; now: number; selected: boolean; busy: boolean; onSelect: () => void; onRevalidate: (key: QueryKey) => void }
+
+// The select control and the revalidate control are sibling buttons (a button can't contain one);
+// the revalidate button sits over the select button's top-right corner.
+function Card({ row, now, selected, busy, onSelect, onRevalidate }: CardProps) {
   const f = freshness(row, now)
+  const label = keyLabel(row.key)
   return (
-    <button className="card" onClick={onSelect} aria-pressed={selected}>
-      <span className="card-top">
-        <code>{keyLabel(row.key)}</code>
-        <span className={`pill ${row.status}`}>{row.status}</span>
-      </span>
-      <span className="meter">
-        {f && (
-          <span className={`track ${row.status}`}>
-            <span className={`fill ${row.status}`} style={{ width: `${f.ratio * 100}%` }} />
-          </span>
-        )}
-        <span className="meter-label">{f ? f.label : row.revalidate === false ? 'never stale' : 'no data yet'}</span>
-      </span>
-    </button>
+    <div className={`card${selected ? ' selected' : ''}`}>
+      <button className="card-select" onClick={onSelect} aria-pressed={selected}>
+        <span className="card-top">
+          <code>{label}</code>
+          <span className={`pill ${row.status}`}>{row.status}</span>
+        </span>
+        <span className="meter">
+          {f && (
+            <span className={`track ${row.status}`}>
+              <span className={`fill ${row.status}`} style={{ width: `${f.ratio * 100}%` }} />
+            </span>
+          )}
+          <span className="meter-label">{f ? f.label : row.revalidate === false ? 'never stale' : 'no data yet'}</span>
+        </span>
+      </button>
+      <button
+        className="icon-btn reval"
+        disabled={busy}
+        onClick={(e) => {
+          e.stopPropagation()
+          onRevalidate(row.key)
+        }}
+        aria-label={`Revalidate ${label}`}
+        title={`revalidate(${label})`}
+      >
+        <Refresh2 size={15} />
+      </button>
+    </div>
   )
 }
 
@@ -205,7 +225,13 @@ function Detail({ row, now, busy, onRevalidate, onError }: DetailProps) {
   const keyPrefixes = prefixes(row.key)
   return (
     <div className="detail">
-      <h2 className="title">{keyLabel(row.key)}</h2>
+      <div className="detail-head">
+        <h2 className="title">{keyLabel(row.key)}</h2>
+        <button className="text-btn primary small" disabled={busy} onClick={() => onRevalidate(row.key)} aria-label={`Revalidate ${keyLabel(row.key)}`} title={`revalidate(${keyLabel(row.key)})`}>
+          <Refresh2 size={14} />
+          Revalidate
+        </button>
+      </div>
       <div className="row">
         <span>Status</span>
         <span className={`pill ${row.status}`}>{row.status}</span>
@@ -235,8 +261,9 @@ function Detail({ row, now, busy, onRevalidate, onError }: DetailProps) {
               {tag}
             </span>
           ) : (
-            <button key={tag} className="tag-btn" disabled={busy} onClick={() => onRevalidate(keyPrefixes[i - 1])} title={`revalidate(${keyLabel(keyPrefixes[i - 1])})`}>
+            <button key={tag} className="tag-btn" disabled={busy} onClick={() => onRevalidate(keyPrefixes[i - 1])} title={`Revalidate ${keyPrefixes[i - 1].join('/')}`}>
               {tag}
+              <Refresh2 size={12} className="tag-ico" />
             </button>
           ),
         )}
