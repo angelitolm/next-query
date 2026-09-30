@@ -65,7 +65,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 </Callout>
 
 <Callout type="note" title="Development only, for the panel">
-  `<NextQuery />` renders nothing outside development, and its server actions refuse to run. `query()`, `revalidate()` and `tags()` are the library itself: they run everywhere, in development and in production.
+  `<NextQuery />` renders nothing outside development, and its server actions refuse to run (unless you [opt in on a staging server](./security#staging-self-hosted)). `query()`, `revalidate()` and `tags()` are the library itself: they run everywhere, in development and in production.
 </Callout>
 
 ## Where to go next

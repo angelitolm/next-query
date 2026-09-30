@@ -4,12 +4,53 @@
 
 El componente de demo `NextQueryDemo` vive en `@angelitolm/next-query/demo`, no en la raíz del paquete. Se renderiza en producción solo con las entradas que le pasas y nunca llama al servidor, así que no necesita guarda de desarrollo. Está pensado para docs y demos.
 
-## El panel es solo de desarrollo
+## El panel es solo de desarrollo por defecto
 
-- El registro de queries que alimenta el panel existe únicamente en `next dev`. En una build de producción, el código que lo llena se elimina.
-- El panel lee los archivos de caché de `.next` (la caché de fetch de Next) y muestra vistas previas de respuestas solo en desarrollo.
-- `<NextQuery />` renderiza `null` fuera de desarrollo y se elimina con tree-shaking, así que el **bundle de cliente de producción no contiene código del panel**. El smoke test de producción del playground lo comprueba en cada ejecución de producción.
-- El panel habla con el servidor mediante server actions. Una server action es un **endpoint público**, como cualquier otra. Cada una lanza `next-query devtools are dev-only` fuera de desarrollo, y los tags que envía el navegador se validan antes de usarse.
+- El registro de queries que alimenta el panel solo se llena en `next dev` (o en un [servidor de staging](#staging-self-hosted) que lo active).
+- El panel lee los archivos de caché de `.next` (la caché de fetch de Next) y muestra vistas previas de respuestas.
+- En una build de producción `<NextQuery />` renderiza `null` y no hace ninguna petición. El panel es un chunk aparte que **las páginas nunca cargan para los visitantes**; el smoke test de producción del playground lo comprueba en cada ejecución.
+- El panel habla con el servidor mediante server actions. Una server action es un **endpoint público**, como cualquier otra. Fuera de desarrollo cada una lanza `next-query devtools are dev-only` salvo que la petición lleve el secreto de staging, y los tags que envía el navegador se validan antes de usarse.
+
+## Staging (self-hosted)
+
+next-query es una herramienta de desarrollo. **Su panel no debe estar en un entorno de producción**, y nada en el paquete lo activa ahí por sí solo.
+
+Un servidor de staging para pruebas específicas de QA es la única excepción, y es **una decisión deliberada de vuestro equipo de desarrollo**: el panel sigue apagado hasta que alguien define el secreto de abajo en ese servidor. Hazlo solo en staging, solo mientras QA lo necesite, y nunca en el entorno al que llegan tus usuarios.
+
+<Callout type="warning" title="Nunca en producción">
+  No definas `NEXT_QUERY_SECRET` en producción, ni siquiera temporalmente para depurar. El panel expone las respuestas en caché y permite a quien tenga el secreto revalidar tu caché.
+</Callout>
+
+Para activarlo en un servidor de staging propio (`next build` + `next start`), define en el servidor un secreto de al menos 16 caracteres:
+
+```bash
+NEXT_QUERY_SECRET=una-cadena-larga-y-aleatoria
+```
+
+Después, en el navegador que deba ver el panel, guárdalo en la cookie `next-query` (una vez, desde la consola de DevTools):
+
+```js
+document.cookie = 'next-query=una-cadena-larga-y-aleatoria; path=/; max-age=2592000; samesite=strict'
+```
+
+Recarga la página: el panel aparece solo en ese navegador. Muestra lo mismo que en desarrollo (cada fetch etiquetado y cada `query()`, con status HTTP, headers de respuesta, frescura y botones para revalidar).
+
+### Cómo funciona el control de acceso
+
+- Sin la variable, o con una de menos de 16 caracteres, producción se comporta exactamente como se describe arriba.
+- En cada carga de página, `<NextQuery />` busca una cookie `next-query`. Si no está, no hace nada: ninguna petición, no se descarga código del panel. Tus visitantes nunca pagan por el panel.
+- Con la cookie, llama una vez a la server action `hasAccess()`. El servidor compara la cookie con el secreto en tiempo constante. Solo si coincide el navegador descarga el chunk del panel.
+- Las demás server actions (`getEntries`, `revalidateTags`) comprueban el secreto en **cada** llamada, así que tampoco se pueden usar sin él. Una cookie incorrecta se rechaza igual que ninguna.
+
+### Desactivarlo
+
+- En un navegador: borra la cookie, `document.cookie = 'next-query=; path=/; max-age=0'`, y recarga.
+- Para todos: quita `NEXT_QUERY_SECRET` del servidor y reinícialo.
+
+### Límites
+- El panel lee `.next/cache/fetch-cache` del disco, así que necesita un único proceso `next start` con la caché por defecto de Next. En Vercel, plataformas serverless o con un `cacheHandler` propio (Redis…) la lista de fetches sale vacía o incompleta.
+- En staging el registro guarda en memoria una entrada por cada clave de `query()` leída. Bien para el tráfico de QA; un motivo más por el que no pertenece a producción.
+- Quien tenga el secreto puede leer las vistas previas en caché y revalidar tags. Trátalo como una contraseña: nunca uses una variable `NEXT_PUBLIC_` para él, y cámbialo cuando alguien deje el equipo.
 
 <Callout type="warning" title="next dev escucha en tu red">
   Mientras `next dev` está en marcha, cualquiera que pueda alcanzarlo (normalmente, todos en tu LAN) puede leer vistas previas de las respuestas de tus fetches en caché y de los datos de tus queries, de hasta unos 16 KB cada una, y revalidar tags. Es la misma exposición que tiene `next dev` por sí mismo. No lo ejecutes en una red que no sea de confianza, y nunca expongas un servidor de desarrollo a internet.

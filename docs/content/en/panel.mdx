@@ -60,7 +60,7 @@ Right after you revalidate, the data has not been refetched yet: Next refetches 
 Select a card to see its detail:
 
 - A **Revalidate** button, the same as the card's ↻.
-- For a fetch: URL, Status, Revalidate (the window, or `never`), Updated (when Next stored it) and Tags.
+- For a fetch: URL, Status, HTTP (the response status code), Revalidate (the window, or `never`), Updated (when Next stored it), Tags and **Response headers** (collapsed; `set-cookie` values are hidden). The request's own headers and body are not shown: Next's cache doesn't keep them, only a hash of them as the cache key.
 - For a query: Status, Revalidate, Updated, Reads / runs and Last run (how long `fn` took), and Tags.
 - **Tags**: every tag is a chip, and clicking one revalidates that tag. Click `products` and every entry that carries it refreshes.
 - The **response** of a fetch, or the **data** of a query, as highlighted JSON, up to the first 16 KB and marked as truncated beyond that. A response that isn't JSON is shown as text. **Copy** puts it on your clipboard.

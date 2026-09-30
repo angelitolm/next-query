@@ -42,6 +42,15 @@ See [revalidate](./revalidate).
 
 The key broke a rule: it must be a non-empty array of non-empty strings or finite numbers. Common causes are an `undefined` id, an empty string, or `NaN`. The full list, including the tag limits, is in [Tags](./tags).
 
+## The panel doesn't show on a staging server
+
+Check, in order:
+
+1. **`NEXT_QUERY_SECRET` is set on the server process** and has at least 16 characters. It's read at runtime, so restart `next start` after changing it. It must not be a `NEXT_PUBLIC_` variable.
+2. **The cookie is there**: in DevTools → Application → Cookies, a `next-query` cookie for this domain with `path=/`, holding exactly the same value.
+3. **The server log**: a refused call logs `next-query devtools are dev-only`. If you see it while the cookie is set, the values don't match.
+4. **The fetch list is empty** but the panel shows: the list is read from `.next/cache/fetch-cache` on disk, so it stays empty on Vercel, other serverless platforms, with a custom `cacheHandler`, or before any page has cached a tagged fetch. See [Security](./security#staging-self-hosted).
+
 ## The panel doesn't render, or says "next-query devtools are dev-only"
 
-The panel is dev-only. With `next start` or a production build, `<NextQuery />` renders no panel at all, and its server actions refuse to run if something calls them. That is intended. `query()`, `revalidate()` and `tags()` keep working; see [Security](./security).
+The panel is dev-only. With `next start` or a production build, `<NextQuery />` renders no panel at all, and its server actions refuse to run if something calls them. That is intended, unless you [opted in for staging](./security#staging-self-hosted). `query()`, `revalidate()` and `tags()` keep working; see [Security](./security).

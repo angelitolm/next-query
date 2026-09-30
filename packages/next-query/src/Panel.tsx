@@ -299,6 +299,12 @@ function Detail({ row, now, busy, onRevalidate, onError }: DetailProps) {
         <span className="row-k"><Activity size={15} />Status</span>
         <span className={`pill ${row.status}`}>{row.status}</span>
       </div>
+      {row.httpStatus !== undefined && (
+        <div className="row">
+          <span className="row-k"><Flash size={15} />HTTP</span>
+          <span className={`http${row.httpStatus >= 400 ? ' bad' : ''}`}>{row.httpStatus}</span>
+        </div>
+      )}
       <div className="row">
         <span className="row-k"><Timer1 size={15} />Revalidate</span>
         <span>{row.revalidate === false ? 'never' : `${row.revalidate}s`}</span>
@@ -330,6 +336,19 @@ function Detail({ row, now, busy, onRevalidate, onError }: DetailProps) {
           </button>
         ))}
       </div>
+      {row.headers && (
+        <details className="headers">
+          <summary>Response headers ({Object.keys(row.headers).length})</summary>
+          <dl>
+            {Object.entries(row.headers).map(([name, value]) => (
+              <div key={name}>
+                <dt>{name}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </details>
+      )}
       {row.error && <pre className="err">{row.error}</pre>}
       {row.preview === undefined ? <pre>—</pre> : <DataView text={row.preview} onError={onError} />}
     </div>
