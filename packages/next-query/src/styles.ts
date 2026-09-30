@@ -120,6 +120,7 @@ code { font: 12px var(--nq-mono); }
 }
 header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 10px 10px 14px; border-bottom: 1px solid var(--nq-border); }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 14px; }
+.brand .version { margin-left: 2px; font: 500 11px var(--nq-mono); color: var(--nq-dim); white-space: nowrap; }
 .mark { width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px; display: grid; place-items: center; background: var(--nq-mark-bg); color: var(--nq-logo); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08); }
 .chips { display: flex; gap: 6px; }
 .chip { height: 22px; padding: 0 8px; border-radius: 6px; display: inline-flex; align-items: center; background: var(--nq-raised); color: var(--nq-dim); font-size: 11px; font-weight: 600; white-space: nowrap; }

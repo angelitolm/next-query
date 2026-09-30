@@ -28,6 +28,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: { template: `%s · next-query`, default: t('meta.title') },
     description: t('meta.description'),
     icons: { icon: '/logo.svg' },
+    // The image itself comes from ./opengraph-image.tsx (one per locale).
+    openGraph: { type: 'website', siteName: 'next-query', title: t('meta.title'), description: t('meta.description'), locale },
+    twitter: { card: 'summary_large_image', title: t('meta.title'), description: t('meta.description') },
   }
 }
 
