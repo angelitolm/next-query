@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { createPortal } from 'react-dom'
 import { usePathname, useRouter } from 'next/navigation'
 import { ago, chunk, freshness, leafTags, MAX_TAGS, jsonTokens, sortEntries, status, type Entry, type Sort, type Status } from './core.js'
+import { VERSION } from './version.js'
 import { CloseCircle, Copy, CopySuccess, Refresh2, SearchNormal1, Clock, Activity, Key, Timer1, Repeat, Flash, Hashtag } from './icons.js'
 import { Logo } from './Logo.js'
 import { css } from './styles.js'
@@ -153,6 +154,7 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
                 <Logo size={22} />
               </span>
               next-query
+              <span className="version" title="next-query version">v{VERSION}</span>
             </span>
             <span className="chips">
               <span className="chip">{entries.length} {entries.length === 1 ? 'entry' : 'entries'}</span>
@@ -209,7 +211,7 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
             setOpen(true)
             load()
           }}
-          title={`next-query: ${counts}`}
+          title={`next-query v${VERSION}: ${counts}`}
           aria-label={`Open next-query: ${counts}`}
         >
           <Logo size={32} />
