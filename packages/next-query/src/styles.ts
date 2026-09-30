@@ -114,11 +114,15 @@ code { font: 12px var(--nq-mono); }
 
 /* Panel: the open state, anchored to the launcher's corner */
 .panel {
-  width: min(920px, calc(100vw - 32px)); height: min(460px, 70vh);
+  width: min(1040px, calc(100vw - 32px)); height: min(460px, 70vh);
+  /* The header drops the sort labels and the version as the panel narrows (see @container below). */
+  container-type: inline-size;
   display: flex; flex-direction: column; overflow: hidden; border-radius: var(--nq-radius);
   animation: nq-rise .22s cubic-bezier(.2, .8, .2, 1);
 }
-header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 10px 10px 14px; border-bottom: 1px solid var(--nq-border); }
+header { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; padding: 10px 10px 10px 14px; border-bottom: 1px solid var(--nq-border); }
+/* One line: the search box is what gives way, never the buttons at the end. */
+header > :not(.search):not(.spacer) { flex-shrink: 0; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 14px; }
 .brand .version { margin-left: 2px; font: 500 11px var(--nq-mono); color: var(--nq-dim); white-space: nowrap; }
 .mark { width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px; display: grid; place-items: center; background: var(--nq-mark-bg); color: var(--nq-logo); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08); }
@@ -128,7 +132,7 @@ header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding:
 .chip.err { background: var(--nq-err-bg); color: var(--nq-err); }
 
 .search {
-  flex: 1 1 180px; min-width: 140px; max-width: 280px; height: 32px; padding: 0 10px; border-radius: 8px;
+  flex: 1 1 160px; min-width: 96px; max-width: 280px; height: 32px; padding: 0 10px; border-radius: 8px;
   display: flex; align-items: center; gap: 7px; background: var(--nq-raised); border: 1px solid var(--nq-border); color: var(--nq-dim);
 }
 .search:focus-within { outline: 2px solid var(--nq-accent); outline-offset: 1px; }
@@ -232,11 +236,18 @@ pre.err { background: var(--nq-err-bg); border: 1px solid var(--nq-err-border); 
 
 @keyframes nq-pop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
 @keyframes nq-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@container (max-width: 1000px) {
+  .sort-label { display: none; }
+  .sort button { padding: 0 8px; }
+}
+@container (max-width: 800px) { .brand .version { display: none; } }
+
 @media (prefers-reduced-motion: reduce) { .launcher, .panel { animation: none; } .launcher, .fill { transition: none; } }
 
 @media (max-width: 640px) {
   /* The header wraps to several lines on a phone, so give the stacked list and detail more height. */
   .panel { height: min(640px, calc(100vh - 32px)); }
+  header { flex-wrap: wrap; }
   /* Header lines: brand … reload close / chips search / sort … Revalidate all.
      header::after is an empty full-width item that ends the first line. */
   .brand, .spacer, .icon-btn { order: 1; }

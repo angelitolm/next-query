@@ -19,7 +19,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 ```
 
-`position` is `'bottom-right'` (the default) or `'bottom-left'`. Outside `next dev` it renders nothing.
+`position` is `'bottom-right'` (the default) or `'bottom-left'`. Outside `next dev` it renders nothing (unless you [opt in on a staging server](./security#staging-self-hosted)).
+
+With [NextToolbar](https://next-toolbar.angellm.dev) on the same page, the button and the panel sit just above its bar while the bar is expanded, so they never cover its buttons. When the bar is minimized to a circle, they go back to the corner.
 
 ## Where the entries come from
 
