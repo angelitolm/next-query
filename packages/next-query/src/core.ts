@@ -245,12 +245,12 @@ const NEVER_EXPIRES = 31_536_000 // Next: a year or more means never.
  * unstable_cache (so query()) writes into the same folder with kind 'FETCH' too, but with `data.url === ''`
  * (next/dist/server/web/spec-extension/unstable-cache.js, identical in Next 15.0, 15.5 and 16.3): that is how it is told apart.
  */
-export function parseFetchCacheFile(json: unknown, mtimeMs: number): { entry?: Entry; untagged?: true } {
+export function parseFetchCacheFile(json: unknown, mtimeMs: number): { entry?: Entry; untagged?: string } {
   const file = json as { kind?: unknown; data?: { url?: unknown; body?: unknown; headers?: unknown }; tags?: unknown; revalidate?: unknown } | null
   const url = file?.data?.url
   if (file?.kind !== 'FETCH' || typeof url !== 'string' || url === '') return {}
   const tags = Array.isArray(file.tags) ? file.tags.filter((t): t is string => typeof t === 'string' && t !== '' && t.length <= MAX_TAG_LENGTH && !t.startsWith('_N_T_')) : []
-  if (tags.length === 0) return { untagged: true }
+  if (tags.length === 0) return { untagged: url }
   const revalidate = typeof file.revalidate === 'number' && file.revalidate > 0 && file.revalidate < NEVER_EXPIRES ? file.revalidate : false
   const entry: Entry = { kind: 'fetch', id: `fetch:${url}`, label: url, tags, revalidate, dataUpdatedAt: mtimeMs }
   try {
@@ -270,12 +270,16 @@ export function chunk<T>(items: T[], size: number): T[][] {
   return out
 }
 
+// A tag is a leaf unless another tag extends it (`products` < `products/1`).
+export const leafTags = (tags: string[]): string[] => tags.filter((t) => !tags.some((u) => u.startsWith(t + '/')))
+
 // Next refetches an expired tag on the next read, so right after a revalidate the data on disk or in the registry is
 // still the old one. Flag entries whose tag was revalidated after their data was stored.
 export function markRevalidated(entries: Entry[], revalidatedAt: Record<string, number>): Entry[] {
   return entries.map((e) => {
     const latest = Math.max(...e.tags.map((t) => revalidatedAt[t] ?? 0))
-    return latest > (e.dataUpdatedAt ?? 0) ? { ...e, revalidatedAt: latest } : e
+    // ponytail: fetch-cache mtimes are coarse (~1s), so data stored within 1s before the revalidate counts as refetched
+    return latest > 0 && (e.dataUpdatedAt ?? 0) < latest - 1000 ? { ...e, revalidatedAt: latest } : e
   })
 }
 

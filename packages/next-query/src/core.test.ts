@@ -1,7 +1,7 @@
 import { test, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  MAX_TAGS, chunk, markRevalidated, ago, freshness, hashKey, isNextControlFlow, jsonTokens, keyLabel, keyToTags, normalizeKey, prefixes, preview, recordError, recordRead, recordRun, recordSuccess,
+  MAX_TAGS, chunk, leafTags, markRevalidated, ago, freshness, hashKey, isNextControlFlow, jsonTokens, keyLabel, keyToTags, normalizeKey, prefixes, preview, recordError, recordRead, recordRun, recordSuccess,
   registry, revalidateEntriesByTags, newestPerUrl, parseFetchCacheFile, shortDuration, snapshot, sortEntries, status, tagFor, tags, validateKey, validateRevalidate, validateTags, type Entry, type QueryKey,
 } from './core.ts'
 
@@ -261,8 +261,8 @@ test('parseFetchCacheFile: no preview when the body is broken', () => {
 })
 
 test('parseFetchCacheFile: only Next implicit tags means untagged', () => {
-  assert.deepEqual(parseFetchCacheFile(cacheFile({ tags: ['_N_T_/page', '_N_T_/layout'] }), 1), { untagged: true })
-  assert.deepEqual(parseFetchCacheFile(cacheFile({ tags: undefined }), 1), { untagged: true })
+  assert.deepEqual(parseFetchCacheFile(cacheFile({ tags: ['_N_T_/page', '_N_T_/layout'] }), 1), { untagged: 'http://localhost:3000/api/products' })
+  assert.deepEqual(parseFetchCacheFile(cacheFile({ tags: undefined }), 1), { untagged: 'http://localhost:3000/api/products' })
 })
 
 test('parseFetchCacheFile: unstable_cache entries (empty data.url) and other kinds are skipped', () => {
@@ -301,7 +301,7 @@ test('parseFetchCacheFile: multibyte JSON body and unusable tags dropped', () =>
   const { entry } = parseFetchCacheFile(cacheFile({ tags: ['ok', '', 'x'.repeat(257), 7, '_N_T_/a'] }, { body: b64('{"n":"héllo ✓ 日本"}') }), 1)
   assert.equal(entry!.preview, JSON.stringify({ n: 'héllo ✓ 日本' }, null, 2))
   assert.deepEqual(entry!.tags, ['ok'])
-  assert.deepEqual(parseFetchCacheFile(cacheFile({ tags: ['', 'x'.repeat(257)] }), 1), { untagged: true })
+  assert.deepEqual(parseFetchCacheFile(cacheFile({ tags: ['', 'x'.repeat(257)] }), 1), { untagged: 'http://localhost:3000/api/products' })
 })
 
 test('chunk splits into batches of at most size', () => {
@@ -315,14 +315,18 @@ test('chunk splits into batches of at most size', () => {
 })
 
 test('markRevalidated flags entries with a tag revalidated after their data', () => {
-  const at = (extra: Partial<Entry>): Entry => ({ kind: 'fetch', id: 'fetch:x', label: 'x', tags: ['a', 'b'], revalidate: false, dataUpdatedAt: 100, ...extra })
+  const at = (extra: Partial<Entry>): Entry => ({ kind: 'fetch', id: 'fetch:x', label: 'x', tags: ['a', 'b'], revalidate: false, dataUpdatedAt: 10000, ...extra })
   const e = at({})
   assert.equal(markRevalidated([e], {})[0], e)
-  assert.equal(markRevalidated([e], { a: 100 })[0], e) // not after
-  assert.equal(markRevalidated([e], { other: 999 })[0], e)
-  assert.equal(markRevalidated([e], { a: 150, b: 200 })[0].revalidatedAt, 200)
-  assert.equal(markRevalidated([at({ dataUpdatedAt: undefined })], { a: 1 })[0].revalidatedAt, 1)
-  assert.equal(markRevalidated([at({ dataUpdatedAt: 300 })], { a: 200 })[0].revalidatedAt, undefined) // refetched since
+  assert.equal(markRevalidated([e], { a: 10000 })[0], e) // not after
+  assert.equal(markRevalidated([e], { other: 99999 })[0], e)
+  assert.equal(markRevalidated([e], { a: 15000, b: 20000 })[0].revalidatedAt, 20000)
+  assert.equal(markRevalidated([at({ dataUpdatedAt: undefined })], { a: 5000 })[0].revalidatedAt, 5000)
+  assert.equal(markRevalidated([at({ dataUpdatedAt: 30000 })], { a: 20000 })[0].revalidatedAt, undefined) // refetched since
+  // coarse (1s) file mtime: data stored within 1s before the revalidate counts as refetched
+  assert.equal(markRevalidated([at({ dataUpdatedAt: 10000 })], { a: 10999 })[0].revalidatedAt, undefined)
+  assert.equal(markRevalidated([at({ dataUpdatedAt: 10000 })], { a: 11000 })[0].revalidatedAt, undefined)
+  assert.equal(markRevalidated([at({ dataUpdatedAt: 10000 })], { a: 11001 })[0].revalidatedAt, 11001)
 })
 
 test('a revalidated entry is stale with an empty bar until it is read again', () => {
@@ -335,4 +339,10 @@ test('a revalidated entry is stale with an empty bar until it is read again', ()
 test('revalidateEntriesByTags clears revalidatedAt', () => {
   const f: Entry = { kind: 'fetch', id: 'fetch:x', label: 'x', tags: ['a'], revalidate: false, dataUpdatedAt: 1, revalidatedAt: 5 }
   assert.equal(revalidateEntriesByTags([f], ['a'], 9)[0].revalidatedAt, undefined)
+})
+
+test('leafTags drops tags that are a path prefix of another tag', () => {
+  assert.deepEqual(leafTags(['products', 'products/1']), ['products/1'])
+  assert.deepEqual(leafTags(['a', 'b']), ['a', 'b'])
+  assert.deepEqual(leafTags(['products', 'products/1', 'x']), ['products/1', 'x'])
 })

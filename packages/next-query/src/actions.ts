@@ -21,23 +21,27 @@ async function walkFiles(dir: string): Promise<string[]> {
   return nested.flat()
 }
 
-// Next 16.3+ dev writes .next/dev/cache/fetch-cache, older versions .next/cache/fetch-cache.
+// Next 16.3+ dev writes .next/dev/cache/fetch-cache, older versions .next/cache/fetch-cache. On 16.3+ the second
+// folder holds `next build` output the dev server never reads, so only the first folder that exists counts.
 async function readFetchCache(): Promise<{ entries: Entry[]; untagged: number }> {
   const entries: Entry[] = []
-  let untagged = 0
+  const untaggedUrls = new Set<string>()
+  let files: string[] = []
   for (const dir of ['.next/dev/cache/fetch-cache', '.next/cache/fetch-cache']) {
-    for (const file of await walkFiles(join(process.cwd(), dir))) {
-      try {
-        const [text, info] = await Promise.all([readFile(file, 'utf8'), stat(file)])
-        const parsed = parseFetchCacheFile(JSON.parse(text), info.mtimeMs)
-        if (parsed.entry) entries.push(parsed.entry)
-        else if (parsed.untagged) untagged++
-      } catch {
-        // unreadable or half-written file
-      }
+    files = await walkFiles(join(process.cwd(), dir))
+    if (files.length) break
+  }
+  for (const file of files) {
+    try {
+      const [text, info] = await Promise.all([readFile(file, 'utf8'), stat(file)])
+      const parsed = parseFetchCacheFile(JSON.parse(text), info.mtimeMs)
+      if (parsed.entry) entries.push(parsed.entry)
+      else if (parsed.untagged) untaggedUrls.add(parsed.untagged)
+    } catch {
+      // unreadable or half-written file
     }
   }
-  return { entries: newestPerUrl(entries), untagged }
+  return { entries: newestPerUrl(entries), untagged: untaggedUrls.size }
 }
 
 export async function getEntries(): Promise<{ entries: Entry[]; untagged: number }> {
