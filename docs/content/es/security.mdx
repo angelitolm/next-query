@@ -33,8 +33,21 @@ Después, en el navegador que deba ver el panel, guárdalo en la cookie `next-qu
 document.cookie = 'next-query=una-cadena-larga-y-aleatoria; path=/; max-age=2592000; samesite=strict'
 ```
 
-- Sin la variable, o con una de menos de 16 caracteres, producción se comporta exactamente como arriba.
-- Solo un navegador con la cookie `next-query` pregunta al servidor (`hasAccess()`); el servidor la compara con el secreto en tiempo constante. Una cookie incorrecta se rechaza igual que ninguna.
+Recarga la página: el panel aparece solo en ese navegador. Muestra lo mismo que en desarrollo (cada fetch etiquetado y cada `query()`, con status HTTP, headers de respuesta, frescura y botones para revalidar).
+
+### Cómo funciona el control de acceso
+
+- Sin la variable, o con una de menos de 16 caracteres, producción se comporta exactamente como se describe arriba.
+- En cada carga de página, `<NextQuery />` busca una cookie `next-query`. Si no está, no hace nada: ninguna petición, no se descarga código del panel. Tus visitantes nunca pagan por el panel.
+- Con la cookie, llama una vez a la server action `hasAccess()`. El servidor compara la cookie con el secreto en tiempo constante. Solo si coincide el navegador descarga el chunk del panel.
+- Las demás server actions (`getEntries`, `revalidateTags`) comprueban el secreto en **cada** llamada, así que tampoco se pueden usar sin él. Una cookie incorrecta se rechaza igual que ninguna.
+
+### Desactivarlo
+
+- En un navegador: borra la cookie, `document.cookie = 'next-query=; path=/; max-age=0'`, y recarga.
+- Para todos: quita `NEXT_QUERY_SECRET` del servidor y reinícialo.
+
+### Límites
 - El panel lee `.next/cache/fetch-cache` del disco, así que necesita un único proceso `next start` con la caché por defecto de Next. En Vercel, plataformas serverless o con un `cacheHandler` propio (Redis…) la lista de fetches sale vacía o incompleta.
 - En staging el registro guarda en memoria una entrada por cada clave de `query()` leída. Bien para el tráfico de QA; un motivo más por el que no pertenece a producción.
 - Quien tenga el secreto puede leer las vistas previas en caché y revalidar tags. Trátalo como una contraseña: nunca uses una variable `NEXT_PUBLIC_` para él, y cámbialo cuando alguien deje el equipo.

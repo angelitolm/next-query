@@ -33,8 +33,21 @@ Then, in the browser that should see the panel, set it as the `next-query` cooki
 document.cookie = 'next-query=a-long-random-string; path=/; max-age=2592000; samesite=strict'
 ```
 
-- Without the variable, or with one shorter than 16 characters, production behaves exactly as above.
-- Only a browser holding the `next-query` cookie asks the server (`hasAccess()`); the server compares it with the secret in constant time. A wrong cookie is refused like none.
+Reload the page: the panel appears for that browser only. It shows the same thing as in development (every tagged fetch and `query()`, with HTTP status, response headers, freshness and revalidate buttons).
+
+### How the access check works
+
+- Without the variable, or with one shorter than 16 characters, production behaves exactly as described above.
+- On every page load, `<NextQuery />` looks for a `next-query` cookie. Without it, it does nothing: no request, no panel code downloaded. Your visitors never pay for the panel.
+- With the cookie, it calls the `hasAccess()` server action once. The server compares the cookie with the secret in constant time. Only on success does the browser download the panel's chunk.
+- The other server actions (`getEntries`, `revalidateTags`) check the secret on **every** call, so they can't be called without it either. A wrong cookie is refused like none.
+
+### Turn it off
+
+- For one browser: delete the cookie, `document.cookie = 'next-query=; path=/; max-age=0'`, and reload.
+- For everyone: remove `NEXT_QUERY_SECRET` from the server and restart it.
+
+### Limits
 - The panel reads `.next/cache/fetch-cache` from disk, so it needs a single `next start` process with Next's default cache. On Vercel, serverless platforms or with a custom `cacheHandler` (Redis…) the fetch list is empty or partial.
 - On staging the registry keeps one entry per `query()` key read, in memory. Fine for QA traffic, one more reason it doesn't belong in production.
 - Anyone with the secret can read cached previews and revalidate tags. Treat it like a password: never use a `NEXT_PUBLIC_` variable for it, and rotate it when someone leaves the team.

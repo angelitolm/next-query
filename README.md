@@ -86,7 +86,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 In `next dev`, a round launcher with the logo sits in the bottom-right corner, with a bubble showing the stale and error count. The panel lists the `query()` entries that have run and the tagged native fetches it reads from Next's fetch cache, each with a QUERY or FETCH badge, its status and a freshness bar that counts down to stale (`revalidate: false` shows "never stale"). Each card has a ↻ that revalidates its most specific (leaf) tags; click the `products` chip to revalidate every product. Open an entry for its details, its tags (click a tag chip to revalidate that tag) and its data or response as highlighted JSON with a copy button. "Revalidate all" revalidates every tag in the list (the filter doesn't narrow it), and the ↻ in the header only reloads the list. After a revalidate an entry reads "revalidated · refetches on next read" until the page reads it again. Cached fetches with no tags are counted in a hint at the bottom of the list. Use `position="bottom-left"` to move it.
 
-Outside development `<NextQuery />` renders nothing, and its server actions refuse to run. A fetch or query shows up once it has run. Fetches inside `'use cache'` are not listed.
+Outside development `<NextQuery />` renders nothing, and its server actions refuse to run. A self-hosted staging server can opt in for QA with a secret, as a deliberate exception; see [Staging](https://next-query.angellm.dev/en/security#staging-self-hosted). A fetch or query shows up once it has run. Fetches inside `'use cache'` are not listed.
 
 ## The docs demo
 
@@ -94,7 +94,7 @@ Outside development `<NextQuery />` renders nothing, and its server actions refu
 
 ## How it works
 
-`revalidate(tag)` calls `revalidateTag(tag, { expire: 0 })`. `query()` wraps `unstable_cache` and tags it with `tags(key)`. The panel reads the fetch cache files in `.next` in development only.
+`revalidate(tag)` calls `revalidateTag(tag, { expire: 0 })`. `query()` wraps `unstable_cache` and tags it with `tags(key)`. The panel reads the fetch cache files in `.next` (in development, or on an opted-in staging server).
 
 ## License
 
