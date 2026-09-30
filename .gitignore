@@ -1,0 +1,12 @@
+node_modules
+dist
+.next
+next-env.d.ts
+*.tsbuildinfo
+.claude/
+.idea/
+.vscode/
+.tarballs/
+.env*
+.vercel
+.npmrc

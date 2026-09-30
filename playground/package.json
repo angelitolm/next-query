@@ -1,0 +1,21 @@
+{
+  "name": "playground",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3100",
+    "build": "next build",
+    "start": "next start",
+    "smoke": "node smoke.ts"
+  },
+  "dependencies": {
+    "@angelitolm/next-query": "workspace:*",
+    "next": "16.3.6",
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19.3.0",
+    "typescript": "^6.0.3"
+  }
+}

@@ -92,7 +92,7 @@ An internal `'use server'` module exports:
 
 Both throw `Error('next-query devtools are dev-only')` unless `NODE_ENV === 'development'`. A server action is a public endpoint, and without this guard anyone could revalidate the app's cache in production.
 
-Risk, checked first: Next must compile a `'use server'` module that lives in `node_modules`. Fallback if it doesn't: a route handler the user mounts at `app/api/next-query/route.ts`, the same pattern as `@angelitolm/next-toolbar/server`.
+Verified 2026-09-29: a 'use server' module in the package is callable from the package's client component, via workspace link and a real node_modules install, on Next 15.5 and 16.3.6. Verification was done over HTTP: each spike POSTed the `ping` server action (Next-Action header, id from server-reference-manifest.json) to the dev server and got `pong development` back with a 200.
 
 ## `<NextQuery />` (client)
 
