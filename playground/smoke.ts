@@ -118,23 +118,34 @@ const findAction = (): string | undefined => {
   }
 }
 let actionId = findAction()
-for (let i = 0; !actionId && i < 20; i++) {
+for (let i = 0; !prod && !actionId && i < 20; i++) {
   await sleep(500)
   actionId = findAction()
 }
-if (!actionId) fail(`getQueries not in any server-reference-manifest.json (${manifests.length} found)`)
-const res = await fetch(`${BASE}/`, {
-  method: 'POST',
-  headers: { 'Next-Action': actionId!, Accept: 'text/x-component', 'Content-Type': 'text/plain;charset=UTF-8' },
-  body: '[]',
-})
-const flight = await res.text()
+const post = async (id: string) => {
+  const res = await fetch(`${BASE}/`, {
+    method: 'POST',
+    headers: { 'Next-Action': id, Accept: 'text/x-component', 'Content-Type': 'text/plain;charset=UTF-8' },
+    body: '[]',
+  })
+  return { ok: res.ok, status: res.status, flight: await res.text() }
+}
 if (prod) {
-  // The actions are dev-only: a production server must not hand out the registry.
-  if (res.ok && flight.includes('nq:products')) fail(`getQueries returned the registry in production: ${flight.slice(0, 200)}`)
-  console.log('dev-only actions refused in production')
+  // The actions are dev-only: a production server must not hand out the registry. Next 15.0's build
+  // manifests carry no action names, so there every registered action is called instead.
+  const ids = actionId
+    ? [actionId]
+    : manifests.flatMap((path) => [...readFileSync(path, 'utf8').matchAll(/"([0-9a-f]{40,})":\{"workers"/g)].map((m) => m[1]))
+  if (!ids.length) fail(`no server actions in any server-reference-manifest.json (${manifests.length} found)`)
+  for (const id of ids) {
+    const { ok, flight } = await post(id)
+    if (ok && flight.includes('nq:products')) fail(`action ${id} returned the registry in production: ${flight.slice(0, 200)}`)
+  }
+  console.log(`dev-only actions refused in production (${ids.length} action${ids.length === 1 ? '' : 's'} called)`)
 } else {
-  if (!res.ok) fail(`getQueries action -> ${res.status}: ${flight.slice(0, 200)}`)
+  if (!actionId) fail(`getQueries not in any server-reference-manifest.json (${manifests.length} found)`)
+  const { ok, status, flight } = await post(actionId)
+  if (!ok) fail(`getQueries action -> ${status}: ${flight.slice(0, 200)}`)
   if (!flight.includes('nq:products')) fail(`getQueries returned no products entry: ${flight.slice(0, 200)}`)
   console.log('getQueries action OK')
 }
