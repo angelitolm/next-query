@@ -182,3 +182,15 @@ export function isNextControlFlow(error: unknown): boolean {
 }
 
 export const snapshot = (): Entry[] => [...registry().values()].map((e) => ({ ...e, key: [...e.key], tags: [...e.tags] }))
+
+// Pure twin of revalidate() for in-memory data (the docs demo): refreshes every entry under `key`.
+export function revalidateEntries(entries: Entry[], key: QueryKey | string, now: number): Entry[] {
+  const k = normalizeKey(key)
+  validateKey(k)
+  const tag = keyToTags(k).at(-1)!
+  return entries.map((e) => {
+    if (!e.tags.includes(tag)) return e
+    const { error: _error, ...rest } = e
+    return { ...rest, dataUpdatedAt: now, runs: e.runs + 1 }
+  })
+}

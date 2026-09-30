@@ -2,7 +2,7 @@ import { test, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   ago, freshness, hashKey, isNextControlFlow, jsonTokens, keyLabel, keyToTags, normalizeKey, prefixes, preview, recordError, recordRead, recordRun, recordSuccess,
-  registry, shortDuration, snapshot, sortEntries, status, validateKey, validateRevalidate, type Entry,
+  registry, revalidateEntries, shortDuration, snapshot, sortEntries, status, validateKey, validateRevalidate, type Entry,
 } from './core.ts'
 
 test('keyToTags: root tag plus one tag per prefix', () => {
@@ -181,4 +181,21 @@ test('isNextControlFlow spots notFound/redirect digests only', () => {
   assert.equal(isNextControlFlow(Object.assign(new Error('x'), { digest: '12345' })), false)
   assert.equal(isNextControlFlow(null), false)
   assert.equal(isNextControlFlow('NEXT_REDIRECT'), false)
+})
+
+test('revalidateEntries refreshes the key and everything under it', () => {
+  const e = (key: Entry['key'], extra: Partial<Entry> = {}): Entry => ({ key, hash: hashKey(key), tags: keyToTags(key), revalidate: 10, reads: 1, runs: 1, lastReadAt: 0, dataUpdatedAt: 5, ...extra })
+  const list = e(['products'])
+  const one = e(['products', 1], { error: 'boom' })
+  const stats = e(['stats'])
+  const out = revalidateEntries([list, one, stats], 'products', 99)
+  assert.equal(out[0].dataUpdatedAt, 99)
+  assert.equal(out[0].runs, 2)
+  assert.equal(out[1].dataUpdatedAt, 99)
+  assert.equal(out[1].error, undefined)
+  assert.equal(out[2], stats)
+  const child = revalidateEntries([list, one], ['products', 1], 7)
+  assert.equal(child[0], list)
+  assert.equal(child[1].dataUpdatedAt, 7)
+  assert.throws(() => revalidateEntries([list], [], 1), TypeError)
 })
