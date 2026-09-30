@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { createPortal } from 'react-dom'
 import { usePathname, useRouter } from 'next/navigation'
-import { ago, freshness, jsonTokens, sortEntries, status, type Entry, type Sort, type Status } from './core.js'
+import { ago, chunk, freshness, MAX_TAGS, jsonTokens, sortEntries, status, type Entry, type Sort, type Status } from './core.js'
 import { CloseCircle, Copy, CopySuccess, Refresh2, SearchNormal1, Clock, Activity, Key, Timer1, Repeat, Flash, Hashtag } from './icons.js'
 import { Logo } from './Logo.js'
 import { css } from './styles.js'
@@ -108,6 +108,11 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
   }
   const pending = busy || refreshing
   const revalidate = (tags: string[]) => act(() => source.revalidateTags(tags))
+  // The server takes at most MAX_TAGS tags per call.
+  const revalidateAll = () =>
+    act(async () => {
+      for (const batch of chunk([...new Set(entries.flatMap((e) => e.tags))], MAX_TAGS)) await source.revalidateTags(batch)
+    })
 
   if (!root) return inline ? <div ref={setSlot} data-next-query data-inline /> : null
 
@@ -125,7 +130,7 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
     <>
       <style>{css}</style>
       {isOpen ? (
-        <section className={`panel${inline ? ' inline' : corner}`} aria-label="next-query">
+        <section className={`panel${inline ? ' inline' : corner}`} aria-label="next-query" data-nq-panel>
           <header>
             <span className="brand">
               <span className="mark">
@@ -140,7 +145,7 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
             </span>
             <label className="search">
               <SearchNormal1 size={15} />
-              <input placeholder="Filter by key" aria-label="Filter by key" value={filter} onChange={(e) => setFilter(e.target.value)} />
+              <input placeholder="Filter by label or tag" aria-label="Filter by label or tag" value={filter} onChange={(e) => setFilter(e.target.value)} />
             </label>
             <div className="sort" role="group" aria-label="Sort">
               {SORTS.map(([value, label, Icon]) => (
@@ -151,7 +156,7 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
               ))}
             </div>
             <span className="spacer" />
-            <button className="text-btn primary" onClick={() => revalidate([...new Set(entries.flatMap((e) => e.tags))])} disabled={pending || entries.length === 0} title="revalidate every tag in the list">
+            <button className="text-btn primary" onClick={revalidateAll} disabled={pending || entries.length === 0} title="revalidate every tag in the list">
               Revalidate all
             </button>
             <button className="icon-btn" onClick={load} disabled={pending} title="Reload list (doesn't revalidate)" aria-label="Reload list">

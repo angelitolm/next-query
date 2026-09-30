@@ -29,7 +29,7 @@ if (prod) {
   // The panel must not ship to apps that only mount <NextQuery />: no panel string in the client bundle.
   const walkStatic = (dir: string): string[] =>
     readdirSync(dir, { withFileTypes: true }).flatMap((i) => (i.isDirectory() ? walkStatic(join(dir, i.name)) : [join(dir, i.name)]))
-  const leaked = walkStatic(fileURLToPath(new URL('./.next/static', import.meta.url))).filter((f) => readFileSync(f, 'utf8').includes('Filter by key'))
+  const leaked = walkStatic(fileURLToPath(new URL('./.next/static', import.meta.url))).filter((f) => readFileSync(f, 'utf8').includes('data-nq-panel'))
   if (leaked.length) {
     console.error(`SMOKE FAIL (next ${version}${mode}): the panel is in the client bundle: ${leaked.join(', ')}`)
     process.exit(1)
@@ -170,8 +170,9 @@ if (prod) {
   const { ok, status, flight } = await post(actionId)
   if (!ok) fail(`getEntries action -> ${status}: ${flight.slice(0, 200)}`)
   // A query() entry and a native fetch entry, both listed.
-  if (!flight.includes('products')) fail(`getEntries returned no products entry: ${flight.slice(0, 200)}`)
-  if (!flight.includes('/api/now')) fail(`getEntries returned no /api/now fetch entry: ${flight.slice(0, 200)}`)
+  for (const needle of ['"kind":"query"', '"kind":"fetch"', '/api/now', 'products']) {
+    if (!flight.includes(needle)) fail(`getEntries response lacks ${needle}: ${flight.slice(0, 300)}`)
+  }
   console.log('getEntries action OK')
 }
 

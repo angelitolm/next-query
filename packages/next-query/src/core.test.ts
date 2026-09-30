@@ -1,7 +1,7 @@
 import { test, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  ago, freshness, hashKey, isNextControlFlow, jsonTokens, keyLabel, keyToTags, normalizeKey, prefixes, preview, recordError, recordRead, recordRun, recordSuccess,
+  MAX_TAGS, chunk, markRevalidated, ago, freshness, hashKey, isNextControlFlow, jsonTokens, keyLabel, keyToTags, normalizeKey, prefixes, preview, recordError, recordRead, recordRun, recordSuccess,
   registry, revalidateEntriesByTags, newestPerUrl, parseFetchCacheFile, shortDuration, snapshot, sortEntries, status, tagFor, tags, validateKey, validateRevalidate, validateTags, type Entry, type QueryKey,
 } from './core.ts'
 
@@ -302,4 +302,37 @@ test('parseFetchCacheFile: multibyte JSON body and unusable tags dropped', () =>
   assert.equal(entry!.preview, JSON.stringify({ n: 'héllo ✓ 日本' }, null, 2))
   assert.deepEqual(entry!.tags, ['ok'])
   assert.deepEqual(parseFetchCacheFile(cacheFile({ tags: ['', 'x'.repeat(257)] }), 1), { untagged: true })
+})
+
+test('chunk splits into batches of at most size', () => {
+  const nums = (n: number) => Array.from({ length: n }, (_, i) => i)
+  assert.deepEqual(chunk([], 128), [])
+  assert.deepEqual(chunk(nums(1), 128).map((c) => c.length), [1])
+  assert.deepEqual(chunk(nums(128), 128).map((c) => c.length), [128])
+  assert.deepEqual(chunk(nums(129), 128).map((c) => c.length), [128, 1])
+  assert.deepEqual(chunk(nums(300), MAX_TAGS).map((c) => c.length), [128, 128, 44])
+  assert.deepEqual(chunk(nums(300), 128).flat(), nums(300))
+})
+
+test('markRevalidated flags entries with a tag revalidated after their data', () => {
+  const at = (extra: Partial<Entry>): Entry => ({ kind: 'fetch', id: 'fetch:x', label: 'x', tags: ['a', 'b'], revalidate: false, dataUpdatedAt: 100, ...extra })
+  const e = at({})
+  assert.equal(markRevalidated([e], {})[0], e)
+  assert.equal(markRevalidated([e], { a: 100 })[0], e) // not after
+  assert.equal(markRevalidated([e], { other: 999 })[0], e)
+  assert.equal(markRevalidated([e], { a: 150, b: 200 })[0].revalidatedAt, 200)
+  assert.equal(markRevalidated([at({ dataUpdatedAt: undefined })], { a: 1 })[0].revalidatedAt, 1)
+  assert.equal(markRevalidated([at({ dataUpdatedAt: 300 })], { a: 200 })[0].revalidatedAt, undefined) // refetched since
+})
+
+test('a revalidated entry is stale with an empty bar until it is read again', () => {
+  const e = { revalidate: false as const, dataUpdatedAt: 100, revalidatedAt: 150 }
+  assert.equal(status(e, 160), 'stale')
+  assert.equal(status({ ...e, error: 'x' }, 160), 'error')
+  assert.deepEqual(freshness(e, 160), { ratio: 0, label: 'revalidated · refetches on next read' })
+})
+
+test('revalidateEntriesByTags clears revalidatedAt', () => {
+  const f: Entry = { kind: 'fetch', id: 'fetch:x', label: 'x', tags: ['a'], revalidate: false, dataUpdatedAt: 1, revalidatedAt: 5 }
+  assert.equal(revalidateEntriesByTags([f], ['a'], 9)[0].revalidatedAt, undefined)
 })

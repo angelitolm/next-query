@@ -23,12 +23,14 @@ export type Entry = {
   error?: string
   preview?: string
   lastReadAt?: number
+  /** Dev panel: a tag of this entry was revalidated at this time and the data hasn't been re-read since. */
+  revalidatedAt?: number
 }
 
 export const DEV_ONLY = 'next-query devtools are dev-only'
 // Next's limits for unstable_cache tags.
 const MAX_TAG_LENGTH = 256
-const MAX_TAGS = 128
+export const MAX_TAGS = 128
 
 export function normalizeKey(key: QueryKey | string): QueryKey {
   return typeof key === 'string' ? [key] : key
@@ -97,8 +99,9 @@ export const hashKey = (key: QueryKey) => JSON.stringify(key)
 export const keyLabel = (key: QueryKey) => JSON.stringify(key)
 export const prefixes = (key: QueryKey): QueryKey[] => key.map((_, i) => key.slice(0, i + 1))
 
-export function status(entry: Pick<Entry, 'error' | 'revalidate' | 'dataUpdatedAt'>, now: number): Status {
+export function status(entry: Pick<Entry, 'error' | 'revalidate' | 'dataUpdatedAt' | 'revalidatedAt'>, now: number): Status {
   if (entry.error !== undefined) return 'error'
+  if (entry.revalidatedAt !== undefined) return 'stale'
   if (entry.revalidate !== false && entry.dataUpdatedAt !== undefined && now - entry.dataUpdatedAt > entry.revalidate * 1000) return 'stale'
   return 'fresh'
 }
@@ -143,7 +146,8 @@ export const ago = (ms: number): string => (ms < 1000 ? 'just now' : `${shortDur
 
 // Time left before an entry goes stale, for the panel's countdown bar: ratio is the remaining
 // fraction (1 just loaded, 0 once stale). null: never stale, or never loaded.
-export function freshness(entry: Pick<Entry, 'revalidate' | 'dataUpdatedAt'>, now: number): { ratio: number; label: string } | null {
+export function freshness(entry: Pick<Entry, 'revalidate' | 'dataUpdatedAt' | 'revalidatedAt'>, now: number): { ratio: number; label: string } | null {
+  if (entry.revalidatedAt !== undefined) return { ratio: 0, label: 'revalidated · refetches on next read' }
   if (entry.revalidate === false || entry.dataUpdatedAt === undefined) return null
   const age = now - entry.dataUpdatedAt
   const window = entry.revalidate * 1000
@@ -219,7 +223,7 @@ export const snapshot = (): Entry[] => [...registry().values()].map((e) => ({ ..
 export function revalidateEntriesByTags(entries: Entry[], tags: string[], now: number): Entry[] {
   return entries.map((e) => {
     if (!e.tags.some((t) => tags.includes(t))) return e
-    const { error: _error, ...rest } = e
+    const { error: _error, revalidatedAt: _revalidatedAt, ...rest } = e
     return { ...rest, dataUpdatedAt: now, ...(e.kind === 'query' ? { runs: (e.runs ?? 0) + 1 } : {}) }
   })
 }
@@ -258,4 +262,25 @@ export function parseFetchCacheFile(json: unknown, mtimeMs: number): { entry?: E
     // no preview
   }
   return { entry }
+}
+
+export function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size))
+  return out
+}
+
+// Next refetches an expired tag on the next read, so right after a revalidate the data on disk or in the registry is
+// still the old one. Flag entries whose tag was revalidated after their data was stored.
+export function markRevalidated(entries: Entry[], revalidatedAt: Record<string, number>): Entry[] {
+  return entries.map((e) => {
+    const latest = Math.max(...e.tags.map((t) => revalidatedAt[t] ?? 0))
+    return latest > (e.dataUpdatedAt ?? 0) ? { ...e, revalidatedAt: latest } : e
+  })
+}
+
+// Dev-only, on globalThis like the registry: when each tag was last revalidated from the panel.
+export const revalidatedTags = (): Record<string, number> => {
+  const g = globalThis as { __nextQueryRevalidated?: Record<string, number> }
+  return (g.__nextQueryRevalidated ??= {})
 }

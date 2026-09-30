@@ -4,7 +4,7 @@
 import { revalidateTag } from 'next/cache'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
-import { DEV_ONLY, newestPerUrl, parseFetchCacheFile, snapshot, validateTags, type Entry } from './core.js'
+import { DEV_ONLY, markRevalidated, newestPerUrl, parseFetchCacheFile, revalidatedTags, snapshot, validateTags, type Entry } from './core.js'
 
 function assertDev() {
   if (process.env.NODE_ENV !== 'development') throw new Error(DEV_ONLY)
@@ -43,11 +43,15 @@ async function readFetchCache(): Promise<{ entries: Entry[]; untagged: number }>
 export async function getEntries(): Promise<{ entries: Entry[]; untagged: number }> {
   assertDev()
   const fetched = await readFetchCache()
-  return { entries: [...snapshot(), ...fetched.entries], untagged: fetched.untagged }
+  return { entries: markRevalidated([...snapshot(), ...fetched.entries], revalidatedTags()), untagged: fetched.untagged }
 }
 
 export async function revalidateTags(tags: unknown): Promise<void> {
   assertDev()
   validateTags(tags)
-  for (const tag of new Set(tags)) revalidateTag(tag, { expire: 0 })
+  const now = Date.now()
+  for (const tag of new Set(tags)) {
+    revalidateTag(tag, { expire: 0 })
+    revalidatedTags()[tag] = now
+  }
 }
