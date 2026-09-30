@@ -1,4 +1,4 @@
-<p align="center"><img src="./docs/public/logo.svg" width="96" height="96" alt="next-query logo"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/angelitolm/next-query/main/docs/public/logo.svg" width="96" height="96" alt="next-query logo"></p>
 
 <h1 align="center">next-query</h1>
 
@@ -9,7 +9,7 @@
   <a href="https://www.npmjs.com/package/@angelitolm/next-query#provenance"><img src="https://img.shields.io/badge/npm-provenance-2ea44f?logo=npm" alt="npm provenance"></a>
 </p>
 
-<p align="center"><a href="https://next-query.angellm.dev/en/demo"><img src="./docs/public/demo.gif" width="880" alt="next-query demo: opening the panel, revalidating one product's fetch by its card, revalidating every product through the products tag, freshness bars counting down and copying the JSON response"></a></p>
+<p align="center"><a href="https://next-query.angellm.dev/en/demo"><img src="https://raw.githubusercontent.com/angelitolm/next-query/main/docs/public/demo.gif" width="880" alt="next-query demo: opening the panel, revalidating one product's fetch by its card, revalidating every product through the products tag, freshness bars counting down and copying the JSON response"></a></p>
 
 <p align="center"><a href="https://next-query.angellm.dev">Docs</a> · <a href="https://next-query.angellm.dev/en/demo">Live demo</a></p>
 
