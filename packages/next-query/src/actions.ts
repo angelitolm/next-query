@@ -2,6 +2,7 @@
 // The panel's transport. A server action is a public endpoint, so each one refuses to run
 // outside `next dev`, and the input from the browser is validated before use.
 import { revalidateTag } from 'next/cache'
+import { existsSync } from 'node:fs'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { DEV_ONLY, markRevalidated, newestPerUrl, parseFetchCacheFile, revalidatedTags, snapshot, validateTags, type Entry } from './core.js'
@@ -28,8 +29,9 @@ async function readFetchCache(): Promise<{ entries: Entry[]; untagged: number }>
   const untaggedUrls = new Set<string>()
   let files: string[] = []
   for (const dir of ['.next/dev/cache/fetch-cache', '.next/cache/fetch-cache']) {
+    if (!existsSync(join(process.cwd(), dir))) continue
     files = await walkFiles(join(process.cwd(), dir))
-    if (files.length) break
+    break
   }
   for (const file of files) {
     try {

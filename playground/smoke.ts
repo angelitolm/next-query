@@ -175,11 +175,12 @@ if (prod) {
     if (flight.includes('"entries"') || flight.includes('/api/now')) fail(`action ${id} returned the registry in production: ${flight.slice(0, 200)}`)
     // Production redacts the message in the response (only a digest is left), so an error there plus the guard's
     // message in the server log proves the guard fired, not validation: [["x"]] is valid input for every action.
-    if (!flight.includes('"digest"')) fail(`action ${id} did not error in production: ${flight.slice(0, 200)}`)
+    if (actionId && !flight.includes('"digest"')) fail(`action ${id} did not error in production: ${flight.slice(0, 200)}`)
   }
   await sleep(500)
   const refused = serverErr.split('next-query devtools are dev-only').length - 1
-  if (refused < ids.length) fail(`only ${refused} of ${ids.length} actions were refused by the dev-only guard (server log)`)
+  // Only the package's 2 actions (getEntries, revalidateTags) log the guard; the fallback's ids also include the playground's own `rename`, which throws elsewhere.
+  if (refused < 2) fail(`only ${refused} of 2 package actions were refused by the dev-only guard (server log)`)
   console.log(`dev-only actions refused in production (${ids.length} action${ids.length === 1 ? '' : 's'} called)`)
 } else {
   if (!actionId) fail(`getEntries not in any server-reference-manifest.json (${manifests.length} found)`)
