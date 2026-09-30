@@ -284,13 +284,6 @@ export function responseHeaders(raw: unknown): Record<string, string> | undefine
   return Object.keys(out).length ? out : undefined
 }
 
-// How far to lift the floating button and panel so they sit above NextToolbar's expanded bar
-// (full width at the bottom). 0 when the bar isn't there or doesn't reach the bottom edge.
-export function toolbarLift(bar: { top: number; bottom: number } | undefined, viewportHeight: number, gap = 8): number {
-  if (!bar || bar.bottom < viewportHeight - 40) return 0
-  return Math.max(0, Math.round(viewportHeight - bar.top + gap - 16))
-}
-
 export function chunk<T>(items: T[], size: number): T[][] {
   const out: T[][] = []
   for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size))

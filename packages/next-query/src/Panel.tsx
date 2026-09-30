@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { createPortal } from 'react-dom'
 import { usePathname, useRouter } from 'next/navigation'
-import { ago, chunk, toolbarLift, freshness, leafTags, MAX_TAGS, jsonTokens, sortEntries, status, type Entry, type Sort, type Status } from './core.js'
+import { ago, chunk, freshness, leafTags, MAX_TAGS, jsonTokens, sortEntries, status, type Entry, type Sort, type Status } from './core.js'
 import { VERSION } from './version.js'
 import { CloseCircle, Copy, CopySuccess, Refresh2, SearchNormal1, Clock, Activity, Key, Timer1, Repeat, Flash, Hashtag } from './icons.js'
 import { Logo } from './Logo.js'
@@ -47,44 +47,8 @@ function UrlLabel({ url }: { url: string }) {
   )
 }
 
-// NextToolbar (@angelitolm/next-toolbar) docks a full-width bar at the bottom; the button and panel
-// would cover its right end. Watch its <next-toolbar> host and lift them above the bar while it's expanded.
-function useToolbarLift(enabled: boolean): number {
-  const [lift, setLift] = useState(0)
-  useEffect(() => {
-    if (!enabled) return
-    let inner: MutationObserver | undefined
-    const measure = () => {
-      const bar = document.querySelector('next-toolbar')?.shadowRoot?.querySelector('.bar')?.getBoundingClientRect()
-      setLift(toolbarLift(bar, window.innerHeight))
-    }
-    // The toolbar mounts lazily and swaps bar <-> launcher when minimized: watch the page for its host,
-    // then its shadow root for the swap.
-    const watch = () => {
-      const root = document.querySelector('next-toolbar')?.shadowRoot
-      if (root && !inner) {
-        inner = new MutationObserver(measure)
-        inner.observe(root, { childList: true, subtree: true })
-      }
-      measure()
-    }
-    const outer = new MutationObserver(watch)
-    outer.observe(document.body, { childList: true })
-    window.addEventListener('resize', measure)
-    watch()
-    return () => {
-      outer.disconnect()
-      inner?.disconnect()
-      window.removeEventListener('resize', measure)
-    }
-  }, [enabled])
-  return lift
-}
-
 export function Panel({ source, live, position = 'bottom-right', defaultOpen = false, mode = 'floating' }: PanelProps) {
   const inline = mode === 'inline'
-  const lift = useToolbarLift(!inline)
-  const lifted = lift ? { bottom: 16 + lift } : undefined
   // Inline: the host is a div this component renders, so the panel sits where it is placed.
   const [slot, setSlot] = useState<HTMLDivElement | null>(null)
   const pathname = usePathname()
@@ -183,7 +147,7 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
     <>
       <style>{css}</style>
       {isOpen ? (
-        <section className={`panel${inline ? ' inline' : corner}`} style={inline ? undefined : lifted} aria-label="next-query" data-nq-panel>
+        <section className={`panel${inline ? ' inline' : corner}`} aria-label="next-query" data-nq-panel>
           <header>
             <span className="brand">
               <span className="mark">
@@ -243,7 +207,6 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
       ) : (
         <button
           className={`launcher${corner}`}
-          style={lifted}
           onClick={() => {
             setOpen(true)
             load()

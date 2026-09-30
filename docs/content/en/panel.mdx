@@ -23,6 +23,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 With [NextToolbar](https://next-toolbar.angellm.dev) on the same page, the button and the panel sit just above its bar while the bar is expanded, so they never cover its buttons. When the bar is minimized to a circle, they go back to the corner.
 
+It works through a CSS custom property both packages share: the devtool docked at the bottom edge sets `--next-kit-inset-bottom` on `<html>` to the room it takes, and the panel adds it to its bottom offset. Unset, it is `0px`. You can set it yourself if your app has its own bottom bar:
+
+```css
+:root { --next-kit-inset-bottom: 64px; }
+```
+
 ## Where the entries come from
 
 - **Fetches**: the panel reads Next's fetch cache on disk, so it lists every native `fetch` that has a tag in `next.tags` and has been cached. A fetch appears after it has run once.

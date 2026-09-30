@@ -1,7 +1,7 @@
 import { test, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  MAX_TAGS, chunk, toolbarLift, leafTags, markRevalidated, ago, freshness, hashKey, isNextControlFlow, jsonTokens, keyLabel, keyToTags, normalizeKey, prefixes, preview, recordError, recordRead, recordRun, recordSuccess,
+  MAX_TAGS, chunk, leafTags, markRevalidated, ago, freshness, hashKey, isNextControlFlow, jsonTokens, keyLabel, keyToTags, normalizeKey, prefixes, preview, recordError, recordRead, recordRun, recordSuccess,
   registry, revalidateEntriesByTags, newestPerUrl, parseFetchCacheFile, shortDuration, snapshot, sortEntries, status, tagFor, tags, validateKey, validateRevalidate, validateTags, type Entry, type QueryKey,
 } from './core.ts'
 
@@ -238,14 +238,6 @@ const b64 = (s: string) => Buffer.from(s).toString('base64')
 const cacheFile = (over: Record<string, unknown> = {}, data: Record<string, unknown> = {}) => ({
   kind: 'FETCH', tags: ['products', '_N_T_/page'], revalidate: 60,
   data: { url: 'http://localhost:3000/api/products', body: b64('{"a":1}'), headers: { 'content-type': 'application/json' }, status: 200, ...data }, ...over,
-})
-
-test('toolbarLift: above a bar at the bottom edge, 0 without one', () => {
-  // NextToolbar's bar in a 900px viewport: top 847, bottom 892. The button sits 16px from the bottom.
-  assert.equal(toolbarLift({ top: 847, bottom: 892 }, 900), 45)
-  assert.equal(toolbarLift(undefined, 900), 0)
-  // A bar somewhere else on the page (not docked at the bottom) doesn't move it.
-  assert.equal(toolbarLift({ top: 100, bottom: 145 }, 900), 0)
 })
 
 test('parseFetchCacheFile: a tagged JSON fetch', () => {

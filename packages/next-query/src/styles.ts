@@ -89,8 +89,10 @@ code { font: 12px var(--nq-mono); }
 }
 
 /* Shared floating surface */
+/* --next-kit-inset-bottom: room taken at the bottom edge by another @angelitolm devtool (NextToolbar's
+   expanded bar publishes it on <html>). Custom properties inherit into the shadow root; unset, it's 0. */
 .launcher, .panel {
-  position: fixed; right: 16px; bottom: 16px; z-index: 2147483000;
+  position: fixed; right: 16px; bottom: calc(16px + var(--next-kit-inset-bottom, 0px)); z-index: 2147483000;
   background: var(--nq-surface); border: 1px solid var(--nq-border); box-shadow: var(--nq-shadow);
   color: var(--nq-text); font: 13px/1.3 var(--nq-font); -webkit-font-smoothing: antialiased;
 }
@@ -246,7 +248,7 @@ pre.err { background: var(--nq-err-bg); border: 1px solid var(--nq-err-border); 
 
 @media (max-width: 640px) {
   /* The header wraps to several lines on a phone, so give the stacked list and detail more height. */
-  .panel { height: min(640px, calc(100vh - 32px)); }
+  .panel { height: min(640px, calc(100vh - 32px - var(--next-kit-inset-bottom, 0px))); }
   header { flex-wrap: wrap; }
   /* Header lines: brand … reload close / chips search / sort … Revalidate all.
      header::after is an empty full-width item that ends the first line. */

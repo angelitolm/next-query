@@ -23,6 +23,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 Con [NextToolbar](https://next-toolbar.angellm.dev) en la misma página, el botón y el panel se colocan justo encima de su barra mientras está desplegada, así que nunca tapan sus botones. Cuando la barra se minimiza a un círculo, vuelven a la esquina.
 
+Funciona con una propiedad CSS que comparten los dos paquetes: la herramienta anclada al borde inferior define `--next-kit-inset-bottom` en `<html>` con el espacio que ocupa, y el panel lo suma a su distancia al borde. Si no está definida, vale `0px`. Puedes definirla tú si tu app tiene su propia barra inferior:
+
+```css
+:root { --next-kit-inset-bottom: 64px; }
+```
+
 ## De dónde salen las entradas
 
 - **Fetches**: el panel lee la caché de fetch de Next en disco, así que lista cada `fetch` nativo que tenga un tag en `next.tags` y haya quedado en caché. Un fetch aparece después de ejecutarse una vez.
