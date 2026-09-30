@@ -1,1 +1,25 @@
-# Compatibilidad
+## Next.js
+
+Cada versión de la tabla ejecuta la app playground real en CI, tanto con `next dev` como con la build de producción (`next build` y `next start`). El smoke test comprueba la caché, la revalidación por prefijo y las server actions del panel.
+
+| Next.js | Estado |
+|---|---|
+| 15.0.x (15.0.4) | Probada en CI, desarrollo y producción |
+| 15.5 | Probada en CI, desarrollo y producción |
+| 16.0 | Probada en CI, desarrollo y producción |
+| latest | Probada en CI, desarrollo y producción |
+| canary | Probada cada semana, sin bloquear |
+
+Que canary falle es un aviso, no un bloqueo: se ejecuta cada lunes para que los cambios salgan a la luz antes de que los vean los usuarios.
+
+## Todo lo demás
+
+| | |
+|---|---|
+| React | 19 |
+| Router | Solo App Router. El Pages Router no está soportado. |
+| Node | 22.18 o superior, para desarrollar este repo |
+
+## Sobre qué está construido
+
+next-query está construido sobre `unstable_cache`. No usa `'use cache'` ni necesita `cacheComponents`, así que funciona tengas o no activadas esas opciones en tu app.

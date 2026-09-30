@@ -1,1 +1,37 @@
-# Troubleshooting & FAQ
+## My query isn't in the panel
+
+A query appears after it has run once since the dev server started. Visit the page that calls it. If the list is still empty, check that `<NextQuery />` is in the **root** layout and that you are running `next dev`, since the panel renders nothing anywhere else.
+
+## A Date came back as a string
+
+`query()` stores its result with `unstable_cache`, which stores JSON. A `Date` comes back as an ISO string on a cache hit. Return plain data and convert after the read:
+
+```ts title="app/page.tsx"
+const row = await query(['events', 1], () => db.event(1))
+const at = new Date(row.at)
+```
+
+## The page still shows old data after revalidate
+
+Two cases:
+
+- With a `revalidate` window, an expired entry is served once more as stale while it refetches in the background, and the next request gets the new data.
+- To see fresh data on the current page, call `revalidate()` from a server action or route handler after the write. That expires the entry now, and the action refreshes the page that triggered it.
+
+## `revalidate` is already declared
+
+You imported `revalidate` from next-query in a file that also has `export const revalidate`. Rename the import:
+
+```ts
+import { revalidate as revalidateQuery } from '@angelitolm/next-query'
+```
+
+See [revalidate](./revalidate).
+
+## TypeError: key segments must be…
+
+The key broke a rule: it must be a non-empty array of non-empty strings or finite numbers. Common causes are an `undefined` id, an empty string, or `NaN`. The full list, including the tag limits, is in [Keys and tags](./keys-and-tags).
+
+## The panel says "next-query devtools are dev-only"
+
+The panel's server actions only run in `next dev`. You are running `next start`, or a production build, so the panel refuses. That is intended. `query()` and `revalidate()` keep working; see [Security](./security).

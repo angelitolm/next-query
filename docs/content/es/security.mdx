@@ -1,1 +1,18 @@
-# Seguridad
+## Qué se ejecuta en producción
+
+Solo `query()` y `revalidate()`. Ellas son la librería. Todo lo demás del paquete es para desarrollo.
+
+## El panel es solo de desarrollo
+
+- El registro de queries que alimenta el panel existe únicamente en `next dev`. En una build de producción, el código que lo llena se elimina.
+- `<NextQuery />` renderiza `null` fuera de desarrollo y se elimina con tree-shaking, así que el **bundle de cliente de producción no contiene código del panel**.
+- El panel habla con el servidor mediante server actions. Una server action es un **endpoint público**, como cualquier otra. Cada una lanza `next-query devtools are dev-only` fuera de desarrollo, y las claves que envía el navegador se validan antes de usarse.
+
+<Callout type="warning" title="next dev escucha en tu red">
+  Mientras `next dev` está en marcha, cualquiera que pueda alcanzarlo (normalmente, todos en tu LAN) puede leer las vistas previas de las queries, de hasta unos 16 KB cada una, y revalidar queries. Es la misma exposición que tiene `next dev` por sí mismo. No lo ejecutes en una red que no sea de confianza, y nunca expongas un servidor de desarrollo a internet.
+</Callout>
+
+## Qué tener en cuenta
+
+- La vista previa de una query son sus datos en JSON. Si `fn` devuelve algo privado, aparece en el panel durante el desarrollo.
+- Revalidar es inofensivo por diseño: expira datos cacheados, y la siguiente lectura los vuelve a pedir.

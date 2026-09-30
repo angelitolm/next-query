@@ -1,1 +1,41 @@
-# Contribuir
+## Estructura
+
+Es un workspace de pnpm:
+
+| Carpeta | Qué contiene |
+|---|---|
+| `packages/next-query` | La librería (`@angelitolm/next-query`) y sus tests unitarios |
+| `playground` | Una app Next que usa la librería compilada, y el smoke test |
+| `docs` | Este sitio |
+
+## Primeros pasos
+
+Necesitas Node 22.18 o superior y pnpm.
+
+```bash
+pnpm install
+pnpm dev     # vigila el paquete, playground (3100) y docs (3200)
+pnpm test    # tests unitarios
+pnpm build   # compila el paquete
+```
+
+El playground corre en `http://localhost:3100`.
+
+## Smoke test
+
+El smoke test arranca una app Next real y comprueba la caché, la revalidación por prefijo y las server actions del panel, con la versión de Next instalada en el playground:
+
+```bash
+pnpm --filter playground smoke        # next dev
+pnpm --filter playground smoke:prod   # next build y next start
+```
+
+CI ejecuta ambos contra una matriz de versiones de Next (mira [Compatibilidad](./compatibility)). Next 16 se niega a arrancar un segundo `next dev` en la misma carpeta, así que detén tu propio playground antes de lanzar el smoke.
+
+## Commits
+
+Usa commits convencionales: `feat:`, `fix:`, `docs:`, `test:`, `chore:`.
+
+## Docs
+
+Las páginas viven en `docs/content/<locale>/<slug>.mdx`. Mantén ambos idiomas (`en` y `es`) sincronizados: cuando cambies una página, cambia su gemela, y comprueba que `pnpm --filter docs build` pasa.

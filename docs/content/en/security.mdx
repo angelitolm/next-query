@@ -1,1 +1,18 @@
-# Security
+## What runs in production
+
+Only `query()` and `revalidate()`. They are the library. Everything else in the package is for development.
+
+## The panel is dev-only
+
+- The query registry that feeds the panel exists only in `next dev`. In a production build the code that fills it is removed.
+- `<NextQuery />` renders `null` outside development and is tree-shaken, so the **production client bundle contains no panel code**.
+- The panel talks to the server through server actions. A server action is a **public endpoint**, like any other. Each one throws `next-query devtools are dev-only` outside development, and the keys the browser sends are validated before they are used.
+
+<Callout type="warning" title="next dev listens on your network">
+  While `next dev` runs, anyone who can reach it (usually everyone on your LAN) can read query previews, up to about 16 KB each, and revalidate queries. This is the same exposure as `next dev` itself. Do not run it on an untrusted network, and never expose a dev server to the internet.
+</Callout>
+
+## What to keep in mind
+
+- A query preview is the query's data as JSON. If `fn` returns something private, it shows up in the panel in development.
+- Revalidating is harmless by design: it expires cached data, and the next read refetches it.
