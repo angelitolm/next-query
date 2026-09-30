@@ -1,8 +1,8 @@
 {
   "name": "@angelitolm/next-query",
   "version": "0.1.0",
-  "description": "Cache server data by key and revalidate it by key in the Next.js App Router, with a dev panel that lists and revalidates every query",
-  "keywords": ["nextjs", "next", "app-router", "cache", "revalidate", "unstable_cache", "revalidate-tag", "server-actions", "devtools", "react"],
+  "description": "Revalidate tagged fetch() calls by tag in the Next.js App Router, with a dev panel that lists every cached fetch and query",
+  "keywords": ["nextjs", "next", "app-router", "cache", "revalidate", "unstable_cache", "revalidate-tag", "server-actions", "devtools", "react", "fetch", "fetch-cache", "tags", "cache-tags"],
   "author": "Angel Labrada Massó",
   "license": "MIT",
   "repository": {

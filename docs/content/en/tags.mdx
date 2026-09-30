@@ -19,6 +19,8 @@ revalidate('products') // expires the tag 'products'
 | `tags(['products', 1])` | `['products', 'products/1']` |
 | `tags(['products', 1, 'reviews'])` | `['products', 'products/1', 'products/1/reviews']` |
 
+For hierarchies pass an array: `tags('products/1')` is ONE segment (`products%2F1`); use `tags(['products', 1])`.
+
 Use it on the fetch:
 
 ```ts

@@ -19,6 +19,8 @@ revalidate('products') // expira el tag 'products'
 | `tags(['products', 1])` | `['products', 'products/1']` |
 | `tags(['products', 1, 'reviews'])` | `['products', 'products/1', 'products/1/reviews']` |
 
+Para jerarquías pasa un array: `tags('products/1')` es UN segmento (`products%2F1`); usa `tags(['products', 1])`.
+
 Úsala en el fetch:
 
 ```ts

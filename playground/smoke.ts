@@ -2,7 +2,7 @@
 // caches, revalidate() expires by tag, and the package's server actions compile and run.
 // Run: pnpm --filter playground smoke
 import { spawn, spawnSync, execSync } from 'node:child_process'
-import { readFileSync, readdirSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -39,8 +39,13 @@ if (prod) {
 const server = spawn(process.execPath, [...next, prod ? 'start' : 'dev', '--port', String(PORT)], {
   cwd: new URL('.', import.meta.url),
   env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' },
-  stdio: ['ignore', 'inherit', 'inherit'],
+  stdio: ['ignore', 'inherit', 'pipe'],
   detached: posix, // own process group, so the kill below also takes Next's workers
+})
+let serverErr = ''
+server.stderr!.on('data', (d: Buffer) => {
+  serverErr += d
+  process.stderr.write(d)
 })
 const stop = () => {
   try {
@@ -145,34 +150,54 @@ for (let i = 0; !prod && !actionId && i < 20; i++) {
   await sleep(500)
   actionId = findAction()
 }
-const post = async (id: string) => {
+const post = async (id: string, body = '[]') => {
   const res = await fetch(`${BASE}/`, {
     method: 'POST',
     headers: { 'Next-Action': id, Accept: 'text/x-component', 'Content-Type': 'text/plain;charset=UTF-8' },
-    body: '[]',
+    body,
   })
   return { ok: res.ok, status: res.status, flight: await res.text() }
 }
 if (prod) {
-  // The actions are dev-only: a production server must not hand out the registry. Next 15.0's build
-  // manifests carry no action names, so there every registered action is called instead.
+  // The actions are dev-only: a production server must refuse every one with the dev-only guard (not with validation)
+  // and must not hand out the registry. Next 15.0's build manifests carry no action names, so there every id is called.
+  const named = (name: string): string[] =>
+    manifests.flatMap((path) => {
+      const manifest = JSON.parse(readFileSync(path, 'utf8'))
+      return ['node', 'edge'].flatMap((rt) => Object.entries<{ exportedName?: string }>(manifest[rt] ?? {}).filter(([, e]) => e.exportedName === name).map(([id]) => id))
+    })
   const ids = actionId
-    ? [actionId]
+    ? [...new Set([...named('getEntries'), ...named('revalidateTags')])]
     : manifests.flatMap((path) => [...readFileSync(path, 'utf8').matchAll(/"([0-9a-f]{40,})":\{"workers"/g)].map((m) => m[1]))
   if (!ids.length) fail(`no server actions in any server-reference-manifest.json (${manifests.length} found)`)
   for (const id of ids) {
-    const { ok, flight } = await post(id)
-    if (ok && (flight.includes('"entries"') || flight.includes('/api/now'))) fail(`action ${id} returned the registry in production: ${flight.slice(0, 200)}`)
+    const { flight } = await post(id, '[["x"]]')
+    if (flight.includes('"entries"') || flight.includes('/api/now')) fail(`action ${id} returned the registry in production: ${flight.slice(0, 200)}`)
+    // Production redacts the message in the response (only a digest is left), so an error there plus the guard's
+    // message in the server log proves the guard fired, not validation: [["x"]] is valid input for every action.
+    if (!flight.includes('"digest"')) fail(`action ${id} did not error in production: ${flight.slice(0, 200)}`)
   }
+  await sleep(500)
+  const refused = serverErr.split('next-query devtools are dev-only').length - 1
+  if (refused < ids.length) fail(`only ${refused} of ${ids.length} actions were refused by the dev-only guard (server log)`)
   console.log(`dev-only actions refused in production (${ids.length} action${ids.length === 1 ? '' : 's'} called)`)
 } else {
   if (!actionId) fail(`getEntries not in any server-reference-manifest.json (${manifests.length} found)`)
+  // Next 16.3+ dev keeps its fetch cache in .next/dev; .next/cache then only holds `next build` output, which the
+  // panel must ignore. Skipped on Next 15 (no .next/dev folder), where .next/cache is the dev cache.
+  const ghostDir = join(dist, 'cache', 'fetch-cache')
+  const hasDevLayout = existsSync(join(dist, 'dev'))
+  if (hasDevLayout) {
+    mkdirSync(ghostDir, { recursive: true })
+    writeFileSync(join(ghostDir, 'ghost'), JSON.stringify({ kind: 'FETCH', tags: ['ghost'], revalidate: 60, data: { url: 'http://ghost.invalid/x', body: '', headers: {}, status: 200 } }))
+  }
   const { ok, status, flight } = await post(actionId)
   if (!ok) fail(`getEntries action -> ${status}: ${flight.slice(0, 200)}`)
   // A query() entry and a native fetch entry, both listed.
   for (const needle of ['"kind":"query"', '"kind":"fetch"', '/api/now', 'products']) {
     if (!flight.includes(needle)) fail(`getEntries response lacks ${needle}: ${flight.slice(0, 300)}`)
   }
+  if (hasDevLayout && flight.includes('ghost.invalid')) fail('getEntries lists .next/cache/fetch-cache (build output) on the dev layout')
   console.log('getEntries action OK')
 }
 

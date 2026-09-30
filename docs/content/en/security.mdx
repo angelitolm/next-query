@@ -17,5 +17,6 @@ The demo component `NextQueryDemo` lives at `@angelitolm/next-query/demo`, not i
 
 ## What to keep in mind
 
+- Fetch URLs, including query strings (which may carry keys), are sent to the panel in development too.
 - A preview is the response body of a tagged fetch, or the data of a query, as JSON or text. If it is something private, it shows up in the panel in development.
 - Revalidating is harmless by design: it expires cached data, and the next read refetches it.
