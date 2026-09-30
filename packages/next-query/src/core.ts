@@ -81,12 +81,25 @@ export function preview(data: unknown, max = 2048): string {
   return text.length > max ? `${text.slice(0, max)}\n… (${text.length - max} more chars)` : text
 }
 
-export function ago(ms: number): string {
+export function shortDuration(ms: number): string {
   const s = Math.floor(ms / 1000)
-  if (s < 1) return 'just now'
-  if (s < 60) return `${s}s ago`
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`
-  return `${Math.floor(s / 3600)}h ago`
+  if (s < 60) return `${Math.max(s, 0)}s`
+  if (s < 3600) return `${Math.floor(s / 60)}m`
+  return `${Math.floor(s / 3600)}h`
+}
+
+export const ago = (ms: number): string => (ms < 1000 ? 'just now' : `${shortDuration(ms)} ago`)
+
+// How far an entry is toward stale, for the panel's bar. null: never stale, or never loaded.
+export function freshness(entry: Pick<Entry, 'revalidate' | 'dataUpdatedAt'>, now: number): { ratio: number; label: string } | null {
+  if (entry.revalidate === false || entry.dataUpdatedAt === undefined) return null
+  const age = now - entry.dataUpdatedAt
+  const window = entry.revalidate * 1000
+  return {
+    // Clamped at 0 too: the server clock can run slightly ahead of the browser's.
+    ratio: Math.min(Math.max(age / window, 0), 1),
+    label: age <= window ? `${shortDuration(window - age)} left` : `stale ${shortDuration(age - window)}`,
+  }
 }
 
 const STATUS_ORDER: Record<Status, number> = { error: 0, stale: 1, fresh: 2 }

@@ -1,8 +1,8 @@
 import { test, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  ago, hashKey, keyLabel, keyToTags, normalizeKey, prefixes, preview, recordError, recordRead, recordRun, recordSuccess,
-  registry, snapshot, sortEntries, status, validateKey, validateRevalidate, type Entry,
+  ago, freshness, hashKey, keyLabel, keyToTags, normalizeKey, prefixes, preview, recordError, recordRead, recordRun, recordSuccess,
+  registry, shortDuration, snapshot, sortEntries, status, validateKey, validateRevalidate, type Entry,
 } from './core.ts'
 
 test('keyToTags: root tag plus one tag per prefix', () => {
@@ -121,4 +121,19 @@ test('registry lives on globalThis and snapshot is a copy', () => {
   copy.tags.push('mutated')
   assert.deepEqual(registry().get(hashKey(['a']))!.key, ['a'])
   assert.deepEqual(registry().get(hashKey(['a']))!.tags, ['nq', 'nq:a'])
+})
+
+test('shortDuration uses whole units', () => {
+  assert.equal(shortDuration(400), '0s')
+  assert.equal(shortDuration(59_000), '59s')
+  assert.equal(shortDuration(3 * 60_000), '3m')
+  assert.equal(shortDuration(2 * 3_600_000), '2h')
+})
+
+test('freshness: ratio toward stale and a label', () => {
+  assert.deepEqual(freshness({ revalidate: 10, dataUpdatedAt: 0 }, 4_000), { ratio: 0.4, label: '6s left' })
+  assert.deepEqual(freshness({ revalidate: 10, dataUpdatedAt: 0 }, 10_000), { ratio: 1, label: '0s left' })
+  assert.deepEqual(freshness({ revalidate: 10, dataUpdatedAt: 0 }, 22_000), { ratio: 1, label: 'stale 12s' })
+  assert.equal(freshness({ revalidate: false, dataUpdatedAt: 0 }, 5_000), null)
+  assert.equal(freshness({ revalidate: 10 }, 5_000), null)
 })
