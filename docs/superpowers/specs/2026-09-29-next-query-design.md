@@ -109,7 +109,7 @@ Verified 2026-09-29: a 'use server' module in the package is callable from the p
 
 ### Visual design (added 2026-09-29)
 
-The panel follows next-toolbar's visual language (surfaces, launcher circle, rows, tag chips, icons, scrollbars, OS light/dark), recolored with an orange → yellow gradient (`#ff8a3d` → `#ffd23f`). Logo: one mark joining N and Q (the N's gradient diagonal continues as the Q's tail). No native `<select>`: sort is a segmented control. Each query with a numeric `revalidate` shows a freshness bar (age / revalidate) labelled `6s left` or `stale 12s`; `revalidate: false` shows "never stale". When `staleTime` exists later, the bar will measure it instead.
+The panel follows next-toolbar's visual language (surfaces, launcher circle, rows, tag chips, icons, scrollbars, OS light/dark), recolored with an orange → yellow gradient (`#ff8a3d` → `#ffd23f`). Logo: one mark joining N and Q (the N's gradient diagonal continues as the Q's tail). No native `<select>`: sort is a segmented control. Each query with a numeric `revalidate` shows a freshness bar that counts down the remaining fresh time (full when just fetched, empty once stale) labelled `6s left` or `stale 12s`; `revalidate: false` shows "never stale". When `staleTime` exists later, the bar will measure it instead.
 
 ## Error handling
 
