@@ -1,7 +1,7 @@
 'use client'
 import { useMemo, useRef, useState } from 'react'
 import { Panel } from './Panel.js'
-import { revalidateEntries, type Entry, type QueryKey } from './core.js'
+import { revalidateEntriesByTags, tagFor, type Entry, type QueryKey } from './core.js'
 
 export type NextQueryDemoProps = {
   /** Seed data: read once on mount, later changes to this prop are ignored. */
@@ -29,7 +29,7 @@ export function NextQueryDemo({ entries: initial, onRevalidate, position, defaul
     return {
       getQueries: async () => data.current,
       revalidateQuery: async (key: QueryKey) => {
-        set(revalidateEntries(data.current, key, Date.now()))
+        set(revalidateEntriesByTags(data.current, [tagFor(key)], Date.now()))
         cb.current?.(key)
       },
       revalidateAll: async () => {

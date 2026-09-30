@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { createPortal } from 'react-dom'
 import { usePathname, useRouter } from 'next/navigation'
-import { ago, freshness, jsonTokens, keyLabel, prefixes, ROOT_TAG, sortEntries, status, type Entry, type QueryKey, type Sort, type Status } from './core.js'
+import { ago, freshness, jsonTokens, keyLabel, prefixes, sortEntries, status, type Entry, type QueryKey, type Sort, type Status } from './core.js'
 import { CloseCircle, Copy, CopySuccess, Refresh2, SearchNormal1, Clock, Activity, Key, Timer1, Repeat, Flash, Hashtag } from './icons.js'
 import { Logo } from './Logo.js'
 import { css } from './styles.js'
@@ -46,7 +46,7 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
 
   const load = useCallback(async () => {
     try {
-      setEntries(await source.getQueries())
+      setEntries((await source.getQueries()).filter((e) => e.key)) // ponytail: query entries only until Task 2 lists fetches
       setError(null)
     } catch (e) {
       setError(message(e))
@@ -96,8 +96,8 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
   const stale = rows.filter((r) => r.status === 'stale').length
   const failed = rows.filter((r) => r.status === 'error').length
   const needle = filter.trim().toLowerCase()
-  const shown = sortEntries(rows.filter((r) => keyLabel(r.key).toLowerCase().includes(needle)), sort, now)
-  const current = shown.find((r) => r.hash === selected) ?? shown[0]
+  const shown = sortEntries(rows.filter((r) => keyLabel(r.key!).toLowerCase().includes(needle)), sort, now)
+  const current = shown.find((r) => r.id === selected) ?? shown[0]
 
   const counts = `${entries.length} ${entries.length === 1 ? 'query' : 'queries'}${stale ? `, ${stale} stale` : ''}${failed ? `, ${failed} ${failed === 1 ? 'error' : 'errors'}` : ''}`
   const corner = position === 'bottom-left' ? ' left' : ''
@@ -149,8 +149,8 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
             <ul className="list">
               {shown.length === 0 && <li className="empty">No queries yet. A query shows up after query() runs once.</li>}
               {shown.map((r) => (
-                <li key={r.hash}>
-                  <Card row={r} now={now} selected={r.hash === current?.hash} busy={pending} onSelect={() => setSelected(r.hash)} onRevalidate={revalidateKey} />
+                <li key={r.id}>
+                  <Card row={r} now={now} selected={r.id === current?.id} busy={pending} onSelect={() => setSelected(r.id)} onRevalidate={revalidateKey} />
                 </li>
               ))}
             </ul>
@@ -194,7 +194,7 @@ type CardProps = { row: Row; now: number; selected: boolean; busy: boolean; onSe
 // the revalidate button sits over the select button's top-right corner.
 function Card({ row, now, selected, busy, onSelect, onRevalidate }: CardProps) {
   const f = freshness(row, now)
-  const label = keyLabel(row.key)
+  const label = keyLabel(row.key!)
   return (
     <div className={`card${selected ? ' selected' : ''}`}>
       <button className="card-select" onClick={onSelect} aria-pressed={selected}>
@@ -216,7 +216,7 @@ function Card({ row, now, selected, busy, onSelect, onRevalidate }: CardProps) {
         disabled={busy}
         onClick={(e) => {
           e.stopPropagation()
-          onRevalidate(row.key)
+          onRevalidate(row.key!)
         }}
         aria-label={`Revalidate ${label}`}
         title={`revalidate(${label})`}
@@ -230,13 +230,13 @@ function Card({ row, now, selected, busy, onSelect, onRevalidate }: CardProps) {
 type DetailProps = { row: Row; now: number; busy: boolean; onRevalidate: (key: QueryKey) => void; onError: (message: string) => void }
 
 function Detail({ row, now, busy, onRevalidate, onError }: DetailProps) {
-  // tags[0] is the root tag; tags[i] is the tag of prefixes(key)[i - 1].
-  const keyPrefixes = prefixes(row.key)
+  // tags[i] is the tag of prefixes(key)[i].
+  const keyPrefixes = prefixes(row.key!)
   return (
     <div className="detail">
       <div className="detail-head">
-        <h2 className="title">{keyLabel(row.key)}</h2>
-        <button className="text-btn primary small" disabled={busy} onClick={() => onRevalidate(row.key)} aria-label={`Revalidate ${keyLabel(row.key)}`} title={`revalidate(${keyLabel(row.key)})`}>
+        <h2 className="title">{keyLabel(row.key!)}</h2>
+        <button className="text-btn primary small" disabled={busy} onClick={() => onRevalidate(row.key!)} aria-label={`Revalidate ${keyLabel(row.key!)}`} title={`revalidate(${keyLabel(row.key!)})`}>
           <Refresh2 size={14} />
           Revalidate
         </button>
@@ -265,18 +265,12 @@ function Detail({ row, now, busy, onRevalidate, onError }: DetailProps) {
       </div>
       <div className="tags">
         <span className="row-k tags-label"><Hashtag size={15} />Tags</span>
-        {row.tags.map((tag, i) =>
-          tag === ROOT_TAG ? (
-            <span key={tag} className="tag" title="The root tag: use Revalidate all">
-              {tag}
-            </span>
-          ) : (
-            <button key={tag} className="tag-btn" disabled={busy} onClick={() => onRevalidate(keyPrefixes[i - 1])} title={`Revalidate ${keyPrefixes[i - 1].join('/')}`} aria-label={`Revalidate ${keyPrefixes[i - 1].join('/')}`}>
-              {tag}
-              <Refresh2 size={12} className="tag-ico" />
-            </button>
-          ),
-        )}
+        {row.tags.map((tag, i) => (
+          <button key={tag} className="tag-btn" disabled={busy} onClick={() => onRevalidate(keyPrefixes[i])} title={`Revalidate ${tag}`} aria-label={`Revalidate ${tag}`}>
+            {tag}
+            <Refresh2 size={12} className="tag-ico" />
+          </button>
+        ))}
       </div>
       {row.error && <pre className="err">{row.error}</pre>}
       {row.preview === undefined ? <pre>—</pre> : <DataView text={row.preview} onError={onError} />}

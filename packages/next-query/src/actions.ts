@@ -2,7 +2,7 @@
 // The panel's transport. A server action is a public endpoint, so each one refuses to run
 // outside `next dev`, and the key from the browser is validated before use.
 import { revalidateTag } from 'next/cache'
-import { DEV_ONLY, ROOT_TAG, snapshot, validateKey, type Entry, type QueryKey } from './core.js'
+import { DEV_ONLY, snapshot, validateKey, type Entry, type QueryKey } from './core.js'
 import { revalidate } from './query.js'
 
 function assertDev() {
@@ -22,5 +22,6 @@ export async function revalidateQuery(key: QueryKey): Promise<void> {
 
 export async function revalidateAll(): Promise<void> {
   assertDev()
-  revalidateTag(ROOT_TAG, { expire: 0 })
+  // ponytail: Task 2 replaces this with revalidateTags(tags)
+  for (const tag of new Set(snapshot().flatMap((e) => e.tags))) revalidateTag(tag, { expire: 0 })
 }

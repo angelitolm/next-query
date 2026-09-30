@@ -1,5 +1,5 @@
 import { revalidateTag, unstable_cache } from 'next/cache'
-import { hashKey, keyToTags, normalizeKey, isNextControlFlow, recordError, recordRead, recordRun, recordSuccess, validateKey, validateRevalidate, type QueryKey } from './core.js'
+import { hashKey, keyToTags, tagFor, isNextControlFlow, recordError, recordRead, recordRun, recordSuccess, validateKey, validateRevalidate, type QueryKey } from './core.js'
 
 export type QueryConfig = {
   /** Seconds until the data is stale and refetched on the next read, or false (default) to keep it until revalidated. */
@@ -37,10 +37,8 @@ export async function query<T>(key: QueryKey, fn: () => T | Promise<T>, options:
   }
 }
 
-/** Revalidates `key` and every key under it: revalidate('products') also covers ['products', 1]. */
+/** Expires a tag: revalidate('products') covers every entry tagged with it, e.g. tags(['products', 1]). A key expires its deepest tag. */
 export function revalidate(key: QueryKey | string): void {
-  const k = normalizeKey(key)
-  validateKey(k)
   // expire: 0 expires now on Next 16; Next 15's revalidateTag ignores the second argument.
-  revalidateTag(keyToTags(k).at(-1)!, { expire: 0 })
+  revalidateTag(tagFor(key), { expire: 0 })
 }

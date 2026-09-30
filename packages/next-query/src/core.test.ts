@@ -2,18 +2,18 @@ import { test, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   ago, freshness, hashKey, isNextControlFlow, jsonTokens, keyLabel, keyToTags, normalizeKey, prefixes, preview, recordError, recordRead, recordRun, recordSuccess,
-  registry, revalidateEntries, shortDuration, snapshot, sortEntries, status, tags, validateKey, validateRevalidate, type Entry,
+  registry, revalidateEntriesByTags, newestPerUrl, parseFetchCacheFile, shortDuration, snapshot, sortEntries, status, tagFor, tags, validateKey, validateRevalidate, validateTags, type Entry, type QueryKey,
 } from './core.ts'
 
-test('keyToTags: root tag plus one tag per prefix', () => {
-  assert.deepEqual(keyToTags(['products']), ['nq', 'nq:products'])
-  assert.deepEqual(keyToTags(['products', 1]), ['nq', 'nq:products', 'nq:products/1'])
+test('keyToTags: one plain tag per prefix', () => {
+  assert.deepEqual(keyToTags(['products']), ['products'])
+  assert.deepEqual(keyToTags(['products', 1]), ['products', 'products/1'])
 })
 
 test('keyToTags escapes / and % so segments never collide', () => {
-  assert.deepEqual(keyToTags(['a/b']), ['nq', 'nq:a%2Fb'])
+  assert.deepEqual(keyToTags(['a/b']), ['a%2Fb'])
   assert.notDeepEqual(keyToTags(['a/b']).at(-1), keyToTags(['a', 'b']).at(-1))
-  assert.deepEqual(keyToTags(['100%']), ['nq', 'nq:100%25'])
+  assert.deepEqual(keyToTags(['100%']), ['100%25'])
 })
 
 test('normalizeKey turns a string into a one-segment key', () => {
@@ -30,8 +30,8 @@ test('validateKey accepts non-empty keys of strings and finite numbers', () => {
 
 test('validateKey rejects tags over 256 chars and more than 128 tags', () => {
   assert.throws(() => validateKey(['x'.repeat(260)]), /256/)
-  assert.throws(() => validateKey(Array.from({ length: 128 }, (_, i) => i)), /128/)
-  validateKey(Array.from({ length: 127 }, () => 1))
+  assert.throws(() => validateKey(Array.from({ length: 129 }, (_, i) => i)), /128/)
+  validateKey(Array.from({ length: 128 }, () => 1))
 })
 
 test('validateRevalidate accepts false and positive finite seconds', () => {
@@ -78,8 +78,8 @@ test('ago', () => {
   assert.equal(ago(2 * 3_600_000), '2h ago')
 })
 
-const entry = (key: Entry['key'], extra: Partial<Entry>): Entry => ({
-  key, hash: hashKey(key), tags: keyToTags(key), revalidate: 10, reads: 1, runs: 1, lastReadAt: 0, ...extra,
+const entry = (key: QueryKey, extra: Partial<Entry>): Entry => ({
+  kind: 'query', id: hashKey(key), label: keyLabel(key), key, tags: keyToTags(key), revalidate: 10, reads: 1, runs: 1, lastReadAt: 0, ...extra,
 })
 
 test('sortEntries by updated (newest first), status (error, stale, fresh), key', () => {
@@ -87,9 +87,9 @@ test('sortEntries by updated (newest first), status (error, stale, fresh), key',
   const a = entry(['b'], { dataUpdatedAt: now - 1_000 })
   const b = entry(['a'], { dataUpdatedAt: now - 50_000 }) // stale
   const c = entry(['c'], { dataUpdatedAt: now - 2_000, error: 'x' })
-  assert.deepEqual(sortEntries([b, a, c], 'updated', now).map((e) => e.key[0]), ['b', 'c', 'a'])
-  assert.deepEqual(sortEntries([a, b, c], 'status', now).map((e) => e.key[0]), ['c', 'a', 'b'])
-  assert.deepEqual(sortEntries([a, c, b], 'key', now).map((e) => e.key[0]), ['a', 'b', 'c'])
+  assert.deepEqual(sortEntries([b, a, c], 'updated', now).map((e) => e.key![0]), ['b', 'c', 'a'])
+  assert.deepEqual(sortEntries([a, b, c], 'status', now).map((e) => e.key![0]), ['c', 'a', 'b'])
+  assert.deepEqual(sortEntries([a, c, b], 'key', now).map((e) => e.key![0]), ['a', 'b', 'c'])
 })
 
 beforeEach(() => registry().clear())
@@ -117,10 +117,10 @@ test('registry lives on globalThis and snapshot is a copy', () => {
   recordRead(['a'], false)
   assert.equal((globalThis as { __nextQuery?: Map<string, Entry> }).__nextQuery, registry())
   const [copy] = snapshot()
-  copy.key.push('mutated')
+  copy.key!.push('mutated')
   copy.tags.push('mutated')
   assert.deepEqual(registry().get(hashKey(['a']))!.key, ['a'])
-  assert.deepEqual(registry().get(hashKey(['a']))!.tags, ['nq', 'nq:a'])
+  assert.deepEqual(registry().get(hashKey(['a']))!.tags, ['a'])
 })
 
 test('shortDuration uses whole units', () => {
@@ -140,7 +140,7 @@ test('freshness: remaining fraction before stale and a label', () => {
 })
 
 test('sortEntries by key puts a parent before its children', () => {
-  const keys: (string | number)[][] = [['stats'], ['products', 2], ['products', 1], ['products']]
+  const keys: QueryKey[] = [['stats'], ['products', 2], ['products', 1], ['products']]
   const sorted = sortEntries(keys.map((k) => entry(k, {})), 'key', 0).map((e) => e.key)
   assert.deepEqual(sorted, [['products'], ['products', 1], ['products', 2], ['stats']])
 })
@@ -183,25 +183,104 @@ test('isNextControlFlow spots notFound/redirect digests only', () => {
   assert.equal(isNextControlFlow('NEXT_REDIRECT'), false)
 })
 
-test('revalidateEntries refreshes the key and everything under it', () => {
-  const e = (key: Entry['key'], extra: Partial<Entry> = {}): Entry => ({ key, hash: hashKey(key), tags: keyToTags(key), revalidate: 10, reads: 1, runs: 1, lastReadAt: 0, dataUpdatedAt: 5, ...extra })
-  const list = e(['products'])
-  const one = e(['products', 1], { error: 'boom' })
-  const stats = e(['stats'])
-  const out = revalidateEntries([list, one, stats], 'products', 99)
+test('revalidateEntriesByTags refreshes entries carrying any of the tags', () => {
+  const list = entry(['products'], { dataUpdatedAt: 5 })
+  const one = entry(['products', 1], { dataUpdatedAt: 5, error: 'boom' })
+  const stats = entry(['stats'], { dataUpdatedAt: 5 })
+  const out = revalidateEntriesByTags([list, one, stats], ['products'], 99)
   assert.equal(out[0].dataUpdatedAt, 99)
   assert.equal(out[0].runs, 2)
   assert.equal(out[1].dataUpdatedAt, 99)
   assert.equal(out[1].error, undefined)
   assert.equal(out[2], stats)
-  const child = revalidateEntries([list, one], ['products', 1], 7)
+  const child = revalidateEntriesByTags([list, one], ['products/1'], 7)
   assert.equal(child[0], list)
   assert.equal(child[1].dataUpdatedAt, 7)
-  assert.throws(() => revalidateEntries([list], [], 1), TypeError)
 })
 
-test('tags: cache tags of a key, validated', () => {
-  assert.deepEqual(tags('products'), ['nq', 'nq:products'])
-  assert.deepEqual(tags(['products', 1]), ['nq', 'nq:products', 'nq:products/1'])
+test('revalidateEntriesByTags: a fetch and a query sharing a tag both refresh; no match keeps the objects', () => {
+  const f: Entry = { kind: 'fetch', id: 'fetch:http://x/a', label: 'http://x/a', tags: ['products', 'shared'], revalidate: false, dataUpdatedAt: 1 }
+  const q = entry(['stats'], { tags: ['shared'], dataUpdatedAt: 1 })
+  const out = revalidateEntriesByTags([f, q], ['shared'], 50)
+  assert.equal(out[0].dataUpdatedAt, 50)
+  assert.equal(out[0].runs, undefined)
+  assert.equal(out[1].dataUpdatedAt, 50)
+  assert.equal(out[1].runs, 2)
+  const none = revalidateEntriesByTags([f, q], ['other'], 50)
+  assert.equal(none[0], f)
+  assert.equal(none[1], q)
+})
+
+test('tags: plain tags of a key, validated', () => {
+  assert.deepEqual(tags('products'), ['products'])
+  assert.deepEqual(tags(['products', 1]), ['products', 'products/1'])
+  assert.deepEqual(tags(['a/b']), ['a%2Fb'])
   assert.throws(() => tags([]), TypeError)
+})
+
+test('tagFor: a string as is, a key its deepest tag', () => {
+  assert.equal(tagFor('products/1'), 'products/1')
+  assert.equal(tagFor(['products', 1]), 'products/1')
+  assert.throws(() => tagFor(''), TypeError)
+  assert.throws(() => tagFor('x'.repeat(300)), TypeError)
+  assert.throws(() => tagFor([]), TypeError)
+})
+
+test('validateTags: 1 to 128 non-empty strings of at most 256 chars', () => {
+  validateTags(['a', 'b'])
+  validateTags(Array.from({ length: 128 }, () => 'x'))
+  for (const bad of [[], 'a', undefined, Array.from({ length: 129 }, () => 'x'), [''], [1], ['x'.repeat(257)]]) {
+    assert.throws(() => validateTags(bad), TypeError, JSON.stringify(bad))
+  }
+})
+
+const b64 = (s: string) => Buffer.from(s).toString('base64')
+const cacheFile = (over: Record<string, unknown> = {}, data: Record<string, unknown> = {}) => ({
+  kind: 'FETCH', tags: ['products', '_N_T_/page'], revalidate: 60,
+  data: { url: 'http://localhost:3000/api/products', body: b64('{"a":1}'), headers: { 'content-type': 'application/json' }, status: 200, ...data }, ...over,
+})
+
+test('parseFetchCacheFile: a tagged JSON fetch', () => {
+  const { entry, untagged } = parseFetchCacheFile(cacheFile(), 1234)
+  assert.equal(untagged, undefined)
+  assert.deepEqual(entry, {
+    kind: 'fetch', id: 'fetch:http://localhost:3000/api/products', label: 'http://localhost:3000/api/products',
+    tags: ['products'], revalidate: 60, dataUpdatedAt: 1234, preview: '{\n  "a": 1\n}',
+  })
+})
+
+test('parseFetchCacheFile: decodes UTF-8 and keeps a text body as text', () => {
+  const { entry } = parseFetchCacheFile(cacheFile({}, { body: b64('héllo ✓'), headers: { 'content-type': 'text/plain' } }), 1)
+  assert.equal(entry!.preview, '"héllo ✓"')
+})
+
+test('parseFetchCacheFile: no preview when the body is broken', () => {
+  const { entry } = parseFetchCacheFile(cacheFile({}, { body: b64('{oops') }), 1)
+  assert.equal(entry!.preview, undefined)
+  assert.equal(parseFetchCacheFile(cacheFile({}, { body: '***' }), 1).entry!.preview, undefined)
+})
+
+test('parseFetchCacheFile: only Next implicit tags means untagged', () => {
+  assert.deepEqual(parseFetchCacheFile(cacheFile({ tags: ['_N_T_/page', '_N_T_/layout'] }), 1), { untagged: true })
+  assert.deepEqual(parseFetchCacheFile(cacheFile({ tags: undefined }), 1), { untagged: true })
+})
+
+test('parseFetchCacheFile: unstable_cache entries (empty data.url) and other kinds are skipped', () => {
+  // What unstable-cache.js writes: kind FETCH, data.url '' (Next 15.0, 15.5 and 16.3 alike).
+  const unstable = { kind: 'FETCH', tags: ['products'], revalidate: 60, data: { headers: {}, body: b64('{}'), url: '', status: 200 } }
+  assert.deepEqual(parseFetchCacheFile(unstable, 1), {})
+  assert.deepEqual(parseFetchCacheFile({ ...cacheFile(), kind: 'APP_PAGE' }, 1), {})
+  assert.deepEqual(parseFetchCacheFile(null, 1), {})
+  assert.deepEqual(parseFetchCacheFile(cacheFile({}, { url: 5 }), 1), {})
+})
+
+test('parseFetchCacheFile: revalidate below a year is kept, a year or more, 0 or missing is false', () => {
+  assert.equal(parseFetchCacheFile(cacheFile({ revalidate: 31_535_999 }), 1).entry!.revalidate, 31_535_999)
+  for (const r of [31_536_000, 0, false, undefined, 'x']) assert.equal(parseFetchCacheFile(cacheFile({ revalidate: r }), 1).entry!.revalidate, false, String(r))
+})
+
+test('newestPerUrl keeps the newest entry of each URL', () => {
+  const f = (url: string, at: number): Entry => ({ kind: 'fetch', id: `fetch:${url}`, label: url, tags: ['t'], revalidate: false, dataUpdatedAt: at })
+  const out = newestPerUrl([f('a', 1), f('b', 5), f('a', 3), f('a', 2)])
+  assert.deepEqual(out.map((e) => [e.label, e.dataUpdatedAt]).sort(), [['a', 3], ['b', 5]])
 })

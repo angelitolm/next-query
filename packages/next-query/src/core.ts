@@ -5,20 +5,26 @@ export type Status = 'fresh' | 'stale' | 'error'
 export type Sort = 'updated' | 'status' | 'key'
 
 export type Entry = {
-  key: QueryKey
-  hash: string
+  kind: 'query' | 'fetch'
+  /** query: the JSON key; fetch: 'fetch:' + url. */
+  id: string
+  /** query: the JSON key; fetch: the URL. */
+  label: string
+  /** query only. */
+  key?: QueryKey
   tags: string[]
   revalidate: number | false
+  /** fetch: when Next stored it (file mtime). */
   dataUpdatedAt?: number
-  reads: number
-  runs: number
+  /** query only: reads, runs, lastDurationMs, error. */
+  reads?: number
+  runs?: number
   lastDurationMs?: number
   error?: string
   preview?: string
-  lastReadAt: number
+  lastReadAt?: number
 }
 
-export const ROOT_TAG = 'nq'
 export const DEV_ONLY = 'next-query devtools are dev-only'
 // Next's limits for unstable_cache tags.
 const MAX_TAG_LENGTH = 256
@@ -31,12 +37,13 @@ export function normalizeKey(key: QueryKey | string): QueryKey {
 // '/' joins segments in a tag, so it's escaped inside one (and '%', so the escape is unambiguous).
 const escapeSegment = (s: string | number) => String(s).replaceAll('%', '%25').replaceAll('/', '%2F')
 
+// ['products', 1] -> ['products', 'products/1']: one plain tag per prefix, no namespace.
 export function keyToTags(key: QueryKey): string[] {
-  const tags = [ROOT_TAG]
+  const tags: string[] = []
   let path = ''
   for (const segment of key) {
     path = path ? `${path}/${escapeSegment(segment)}` : escapeSegment(segment)
-    tags.push(`${ROOT_TAG}:${path}`)
+    tags.push(path)
   }
   return tags
 }
@@ -48,6 +55,24 @@ export function tags(key: QueryKey | string): string[] {
   return keyToTags(k)
 }
 
+/** The tag `revalidate(key)` expires: a string as is (validated), a key's deepest tag. */
+export function tagFor(key: QueryKey | string): string {
+  if (typeof key === 'string') {
+    if (key === '' || key.length > MAX_TAG_LENGTH) throw new TypeError(`next-query: a tag must be 1 to ${MAX_TAG_LENGTH} characters`)
+    return key
+  }
+  validateKey(key)
+  return keyToTags(key).at(-1)!
+}
+
+/** Browser input for the panel's revalidateTags action: 1 to 128 tags of 1 to 256 characters. */
+export function validateTags(value: unknown): asserts value is string[] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > MAX_TAGS) throw new TypeError(`next-query: expected 1 to ${MAX_TAGS} tags`)
+  for (const t of value) {
+    if (typeof t !== 'string' || t === '' || t.length > MAX_TAG_LENGTH) throw new TypeError(`next-query: a tag must be a string of 1 to ${MAX_TAG_LENGTH} characters`)
+  }
+}
+
 export function validateKey(key: unknown): asserts key is QueryKey {
   if (!Array.isArray(key) || key.length === 0) throw new TypeError('next-query: key must be a non-empty array')
   for (const s of key) {
@@ -55,7 +80,7 @@ export function validateKey(key: unknown): asserts key is QueryKey {
     if (!ok) throw new TypeError(`next-query: key segments must be non-empty strings or finite numbers, got ${JSON.stringify(s) ?? String(s)}`)
   }
   const tags = keyToTags(key)
-  if (tags.length > MAX_TAGS) throw new TypeError(`next-query: a key makes one tag per segment plus one, and Next allows ${MAX_TAGS} tags`)
+  if (tags.length > MAX_TAGS) throw new TypeError(`next-query: a key makes one tag per segment, and Next allows ${MAX_TAGS} tags`)
   const long = tags.find((t) => t.length > MAX_TAG_LENGTH)
   if (long) throw new TypeError(`next-query: tag longer than ${MAX_TAG_LENGTH} characters: ${long.slice(0, 40)}…`)
 }
@@ -135,12 +160,12 @@ export function sortEntries<T extends Entry>(entries: T[], sort: Sort, now: numb
   const by: Record<Sort, (a: T, b: T) => number> = {
     updated: (a, b) => (b.dataUpdatedAt ?? 0) - (a.dataUpdatedAt ?? 0),
     status: (a, b) => STATUS_ORDER[status(a, now)] - STATUS_ORDER[status(b, now)],
-    key: (a, b) => compareKeys(a.key, b.key),
+    key: (a, b) => (a.key && b.key ? compareKeys(a.key, b.key) : a.label.localeCompare(b.label)),
   }
   return [...entries].sort(by[sort])
 }
 
-// Segment by segment, so a parent sorts right before its children; numbers compare numerically.
+// Query keys compare segment by segment (fetch URLs by label), so a parent sorts right before its children; numbers compare numerically.
 function compareKeys(a: QueryKey, b: QueryKey): number {
   for (let i = 0; i < Math.min(a.length, b.length); i++) {
     const [x, y] = [a[i], b[i]]
@@ -157,17 +182,17 @@ export const registry = (): Map<string, Entry> => {
 }
 
 export function recordRead(key: QueryKey, revalidate: number | false, now = Date.now()): Entry {
-  const hash = hashKey(key)
-  const entry = registry().get(hash) ?? { key: [...key], hash, tags: keyToTags(key), revalidate, reads: 0, runs: 0, lastReadAt: now }
+  const id = hashKey(key)
+  const entry: Entry = registry().get(id) ?? { kind: 'query', id, label: keyLabel(key), key: [...key], tags: keyToTags(key), revalidate, reads: 0, runs: 0, lastReadAt: now }
   entry.revalidate = revalidate
-  entry.reads++
+  entry.reads = (entry.reads ?? 0) + 1
   entry.lastReadAt = now
-  registry().set(hash, entry)
+  registry().set(id, entry)
   return entry
 }
 
 export function recordRun(entry: Entry, durationMs: number): void {
-  entry.runs++
+  entry.runs = (entry.runs ?? 0) + 1
   entry.lastDurationMs = durationMs
 }
 
@@ -188,16 +213,49 @@ export function isNextControlFlow(error: unknown): boolean {
   return typeof digest === 'string' && digest.startsWith('NEXT_')
 }
 
-export const snapshot = (): Entry[] => [...registry().values()].map((e) => ({ ...e, key: [...e.key], tags: [...e.tags] }))
+export const snapshot = (): Entry[] => [...registry().values()].map((e) => ({ ...e, key: e.key && [...e.key], tags: [...e.tags] }))
 
-// Pure twin of revalidate() for in-memory data (the docs demo): refreshes every entry under `key`.
-export function revalidateEntries(entries: Entry[], key: QueryKey | string, now: number): Entry[] {
-  const k = normalizeKey(key)
-  validateKey(k)
-  const tag = keyToTags(k).at(-1)!
+// Pure twin of revalidateTag() for in-memory data (the docs demo): refreshes every entry carrying one of `tags`.
+export function revalidateEntriesByTags(entries: Entry[], tags: string[], now: number): Entry[] {
   return entries.map((e) => {
-    if (!e.tags.includes(tag)) return e
+    if (!e.tags.some((t) => tags.includes(t))) return e
     const { error: _error, ...rest } = e
-    return { ...rest, dataUpdatedAt: now, runs: e.runs + 1 }
+    return { ...rest, dataUpdatedAt: now, ...(e.kind === 'query' ? { runs: (e.runs ?? 0) + 1 } : {}) }
   })
+}
+
+// A fetch URL can have several cache files (other headers or body); keep the newest per URL.
+export function newestPerUrl(entries: Entry[]): Entry[] {
+  const newest = new Map<string, Entry>()
+  for (const e of entries) {
+    const seen = newest.get(e.id)
+    if (!seen || (e.dataUpdatedAt ?? 0) > (seen.dataUpdatedAt ?? 0)) newest.set(e.id, e)
+  }
+  return [...newest.values()]
+}
+
+const NEVER_EXPIRES = 31_536_000 // Next: a year or more means never.
+
+/**
+ * One file of Next's fetch cache (`.next/cache/fetch-cache`, `.next/dev/cache/fetch-cache` on 16.3+) as an Entry.
+ * unstable_cache (so query()) writes into the same folder with kind 'FETCH' too, but with `data.url === ''`
+ * (next/dist/server/web/spec-extension/unstable-cache.js, identical in Next 15.0, 15.5 and 16.3): that is how it is told apart.
+ */
+export function parseFetchCacheFile(json: unknown, mtimeMs: number): { entry?: Entry; untagged?: true } {
+  const file = json as { kind?: unknown; data?: { url?: unknown; body?: unknown; headers?: unknown }; tags?: unknown; revalidate?: unknown } | null
+  const url = file?.data?.url
+  if (file?.kind !== 'FETCH' || typeof url !== 'string' || url === '') return {}
+  const tags = Array.isArray(file.tags) ? file.tags.filter((t): t is string => typeof t === 'string' && !t.startsWith('_N_T_')) : []
+  if (tags.length === 0) return { untagged: true }
+  const revalidate = typeof file.revalidate === 'number' && file.revalidate > 0 && file.revalidate < NEVER_EXPIRES ? file.revalidate : false
+  const entry: Entry = { kind: 'fetch', id: `fetch:${url}`, label: url, tags, revalidate, dataUpdatedAt: mtimeMs }
+  try {
+    const bytes = Uint8Array.from(atob(String(file.data?.body ?? '')), (c) => c.charCodeAt(0))
+    const text = new TextDecoder().decode(bytes)
+    const type = (file.data?.headers as Record<string, unknown> | undefined)?.['content-type']
+    entry.preview = typeof type === 'string' && type.includes('json') ? preview(JSON.parse(text)) : preview(text)
+  } catch {
+    // no preview
+  }
+  return { entry }
 }
