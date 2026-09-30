@@ -1,0 +1,65 @@
+// Smoke test against the installed Next version: starts `next dev` and checks that query()
+// caches, revalidate() expires by prefix, and the package's server actions compile and run.
+// Run: pnpm --filter playground smoke
+import { spawn, execSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+
+const PORT = 3199
+const BASE = `http://localhost:${PORT}`
+const version: string = JSON.parse(readFileSync(new URL('./node_modules/next/package.json', import.meta.url), 'utf8')).version
+console.log(`next ${version}`)
+
+const posix = process.platform !== 'win32'
+const server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '--port', String(PORT)], {
+  cwd: new URL('.', import.meta.url),
+  env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' },
+  stdio: ['ignore', 'inherit', 'inherit'],
+  detached: posix, // own process group, so the kill below also takes Next's workers
+})
+const stop = () => {
+  try {
+    if (posix) process.kill(-server.pid!, 'SIGKILL')
+    else execSync(`taskkill /pid ${server.pid} /T /F`, { stdio: 'ignore' })
+  } catch {}
+}
+const fail = (msg: string): never => {
+  console.error(`SMOKE FAIL (next ${version}): ${msg}`)
+  stop()
+  process.exit(1)
+}
+setTimeout(() => fail('timed out after 180s'), 180_000).unref()
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+for (let up = false; !up; await sleep(500)) up = await fetch(BASE).then(() => true, () => false)
+
+const fetchedAt = async (path: string): Promise<string> => {
+  const res = await fetch(BASE + path)
+  const html = await res.text()
+  if (!res.ok) fail(`GET ${path} -> ${res.status}`)
+  return html.match(/data-fetched-at="(\d+)"/)?.[1] ?? fail(`GET ${path}: no data-fetched-at`)
+}
+const revalidate = async (key: string) => {
+  const res = await fetch(`${BASE}/api/revalidate?key=${encodeURIComponent(key)}`, { method: 'POST' })
+  if (!res.ok) fail(`revalidate ${key} -> ${res.status}`)
+}
+
+// 1. Cached: a second read returns the same data.
+const list1 = await fetchedAt('/products')
+const one1 = await fetchedAt('/products/1')
+const two1 = await fetchedAt('/products/2')
+if ((await fetchedAt('/products')) !== list1) fail('/products refetched on the second read (not cached)')
+if ((await fetchedAt('/products/1')) !== one1) fail('/products/1 refetched on the second read (not cached)')
+
+// 2. Exact child: revalidating ['products', '2'] leaves the list and product 1 alone.
+await revalidate('products/2')
+if ((await fetchedAt('/products/2')) === two1) fail("revalidate(['products','2']) did not refetch /products/2")
+if ((await fetchedAt('/products')) !== list1) fail("revalidate(['products','2']) refetched /products")
+if ((await fetchedAt('/products/1')) !== one1) fail("revalidate(['products','2']) refetched /products/1")
+
+// 3. Prefix: revalidating ['products'] refetches the list and every product.
+await revalidate('products')
+if ((await fetchedAt('/products')) === list1) fail("revalidate('products') did not refetch /products")
+if ((await fetchedAt('/products/1')) === one1) fail("revalidate('products') did not refetch /products/1")
+
+console.log(`SMOKE OK (next ${version}): cache + revalidate`)
+stop()

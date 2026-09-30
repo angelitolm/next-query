@@ -10,3 +10,5 @@ next-env.d.ts
 .env*
 .vercel
 .npmrc
+playground/AGENTS.md
+playground/CLAUDE.md
