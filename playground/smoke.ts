@@ -61,6 +61,12 @@ const revalidate = async (key: string) => {
   if (!res.ok) fail(`revalidate ${key} -> ${res.status}`)
 }
 
+// /products revalidates every 10s, and `next build` + start on a slow CI runner can take longer
+// than that, so the build's copy may already be stale. Start the 10s window now; the checks
+// below take well under it.
+await revalidate('products')
+for (const path of ['/products', '/products/1', '/products/2']) await fetchedAt(path)
+
 // 1. Cached: a second read returns the same data.
 const list1 = await fetchedAt('/products')
 const one1 = await fetchedAt('/products/1')
