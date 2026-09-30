@@ -4,15 +4,18 @@ import { Panel } from './Panel.js'
 import { revalidateEntries, type Entry, type QueryKey } from './core.js'
 
 export type NextQueryDemoProps = {
+  /** Seed data: read once on mount, later changes to this prop are ignored. */
   entries: Entry[]
   /** Called after a revalidate; `null` means Revalidate all. */
   onRevalidate?: (key: QueryKey | null) => void
   position?: 'bottom-right' | 'bottom-left'
   defaultOpen?: boolean
+  /** Render the panel in place, always open, full width and 460px tall, instead of floating over the page. `position` and `defaultOpen` are ignored. */
+  inline?: boolean
 }
 
 /** The real panel on in-memory entries, for docs. No dev guard, no server. */
-export function NextQueryDemo({ entries: initial, onRevalidate, position, defaultOpen }: NextQueryDemoProps) {
+export function NextQueryDemo({ entries: initial, onRevalidate, position, defaultOpen, inline }: NextQueryDemoProps) {
   const [, render] = useState(0)
   // The source must be stable (the panel reloads when it changes), so it reads the latest data from a ref.
   const data = useRef(initial)
@@ -36,5 +39,5 @@ export function NextQueryDemo({ entries: initial, onRevalidate, position, defaul
       },
     }
   }, [])
-  return <Panel source={source} live={false} position={position} defaultOpen={defaultOpen} />
+  return <Panel source={source} live={false} position={position} defaultOpen={defaultOpen} mode={inline ? 'inline' : 'floating'} />
 }

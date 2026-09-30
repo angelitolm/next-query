@@ -1,5 +1,4 @@
 import '../globals.css'
-import { NextQuery } from '@angelitolm/next-query'
 import { ExportSquare, PlayCircle } from 'iconsax-reactjs'
 import type { Metadata } from 'next'
 import { hasLocale, NextIntlClientProvider } from 'next-intl'
@@ -90,7 +89,6 @@ export default async function LocaleLayout({ children, params }: Props) {
             </div>
 
             <footer className="border-t border-border py-8 text-center text-xs text-muted-foreground">{t('ui.license')}</footer>
-            <NextQuery />
           </ThemeProvider>
         </NextIntlClientProvider>
       </body>

@@ -9,17 +9,21 @@ import { css } from './styles.js'
 
 /** Where the panel gets its data and sends its actions: server actions for NextQuery, memory for the demo. */
 export type Source = { getQueries(): Promise<Entry[]>; revalidateQuery(key: QueryKey): Promise<void>; revalidateAll(): Promise<void> }
-export type PanelProps = { source: Source; live: boolean; position?: 'bottom-right' | 'bottom-left'; defaultOpen?: boolean }
+export type PanelProps = { source: Source; live: boolean; position?: 'bottom-right' | 'bottom-left'; defaultOpen?: boolean; mode?: 'floating' | 'inline' }
 
 type Row = Entry & { status: Status }
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
-export function Panel({ source, live, position = 'bottom-right', defaultOpen = false }: PanelProps) {
+export function Panel({ source, live, position = 'bottom-right', defaultOpen = false, mode = 'floating' }: PanelProps) {
+  const inline = mode === 'inline'
+  // Inline: the host is a div this component renders, so the panel sits where it is placed.
+  const [slot, setSlot] = useState<HTMLDivElement | null>(null)
   const pathname = usePathname()
   const router = useRouter()
   const [refreshing, startRefresh] = useTransition()
   const [root, setRoot] = useState<ShadowRoot | null>(null)
   const [open, setOpen] = useState(defaultOpen)
+  const isOpen = inline || open
   const [entries, setEntries] = useState<Entry[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -29,12 +33,16 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
+    if (inline) {
+      if (slot) setRoot(slot.shadowRoot ?? slot.attachShadow({ mode: 'open' }))
+      return
+    }
     const host = document.createElement('div')
     host.setAttribute('data-next-query', '')
     document.body.appendChild(host)
     setRoot(host.attachShadow({ mode: 'open' }))
     return () => host.remove()
-  }, [])
+  }, [inline, slot])
 
   const load = useCallback(async () => {
     try {
@@ -54,9 +62,9 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
   // Keep "12s ago", the bars and fresh/stale current: every second while open, and every 5s
   // while closed so the launcher's stale count moves too.
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), open ? 1000 : 5000)
+    const id = setInterval(() => setNow(Date.now()), isOpen ? 1000 : 5000)
     return () => clearInterval(id)
-  }, [open])
+  }, [isOpen])
 
   // An action's result arrives before the page it re-renders has read its queries, so a load()
   // right after it would snapshot the registry too early. Refresh the route in a transition
@@ -82,7 +90,7 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
   const pending = busy || refreshing
   const revalidateKey = (key: QueryKey) => act(() => source.revalidateQuery(key))
 
-  if (!root) return null
+  if (!root) return inline ? <div ref={setSlot} data-next-query data-inline /> : null
 
   const rows: Row[] = entries.map((e) => ({ ...e, status: status(e, now) }))
   const stale = rows.filter((r) => r.status === 'stale').length
@@ -94,11 +102,11 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
   const counts = `${entries.length} ${entries.length === 1 ? 'query' : 'queries'}${stale ? `, ${stale} stale` : ''}${failed ? `, ${failed} ${failed === 1 ? 'error' : 'errors'}` : ''}`
   const corner = position === 'bottom-left' ? ' left' : ''
 
-  return createPortal(
+  const content = (
     <>
       <style>{css}</style>
-      {open ? (
-        <section className={`panel${corner}`} aria-label="next-query">
+      {isOpen ? (
+        <section className={`panel${inline ? ' inline' : corner}`} aria-label="next-query">
           <header>
             <span className="brand">
               <span className="mark">
@@ -130,9 +138,11 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
             <button className="icon-btn" onClick={load} disabled={pending} title="Reload list (doesn't revalidate)" aria-label="Reload list">
               <Refresh2 size={18} />
             </button>
-            <button className="icon-btn" onClick={() => setOpen(false)} title="Close" aria-label="Close next-query">
-              <CloseCircle size={18} />
-            </button>
+            {!inline && (
+              <button className="icon-btn" onClick={() => setOpen(false)} title="Close" aria-label="Close next-query">
+                <CloseCircle size={18} />
+              </button>
+            )}
           </header>
           {error && <div className="alert" role="alert">{error}. Check the dev server log.</div>}
           <div className="body">
@@ -161,8 +171,14 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
           {stale + failed > 0 ? <span className={`bubble${failed ? ' err' : ''}`}>{stale + failed}</span> : <span className="dot" />}
         </button>
       )}
-    </>,
-    root,
+    </>
+  )
+  return inline ? (
+    <div ref={setSlot} data-next-query data-inline>
+      {createPortal(content, root)}
+    </div>
+  ) : (
+    createPortal(content, root)
   )
 }
 

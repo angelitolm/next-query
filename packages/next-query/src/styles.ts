@@ -232,4 +232,7 @@ pre.err { background: var(--nq-err-bg); border: 1px solid var(--nq-err-border); 
   .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
   .list { border-right: 0; border-bottom: 1px solid var(--nq-border); }
 }
+:host([data-inline]) { display: block; }
+.panel.inline { position: static; width: 100%; height: min(460px, 70vh); animation: none; box-shadow: none; }
+@media (max-width: 640px) { .panel.inline { height: min(640px, 80vh); } }
 `

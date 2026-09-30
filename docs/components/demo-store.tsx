@@ -13,6 +13,7 @@ const FIXTURES: { key: QueryKey; revalidate: number | false; ago: number; ms: nu
   { key: ['products'], revalidate: 10, ago: 4_000, ms: 62, reads: 14, runs: 2, data: PRODUCTS.map((name, i) => ({ id: i + 1, name })) },
   { key: ['products', 1], revalidate: false, ago: 4_000, ms: 41, reads: 6, runs: 1, data: { id: 1, name: 'Keyboard' } },
   { key: ['products', 2], revalidate: false, ago: 4_000, ms: 48, reads: 3, runs: 1, data: { id: 2, name: 'Mouse' } },
+  { key: ['products', 3], revalidate: false, ago: 4_000, ms: 44, reads: 2, runs: 1, data: { id: 3, name: 'Monitor' } },
   { key: ['stats'], revalidate: 5, ago: 30_000, ms: 55, reads: 9, runs: 6, data: { products: 3 } },
 ]
 
@@ -49,15 +50,14 @@ export function DemoStore({ title }: { title: string }) {
     setFlash((f) => Object.fromEntries([...Object.entries(f), ...entries.filter(hit).map((e) => [e.hash, (f[e.hash] ?? 0) + 1] as const)]))
   }
   // A new key on the span restarts the flash animation.
-  const stamp = (k: QueryKey, className = '') => (
-    <span key={flash[hash(k)] ?? 0} className={`nq-flash rounded px-1 font-mono text-xs tabular-nums ${flash[hash(k)] ? 'nq-flashing' : ''} ${className}`}>
+  const stamp = (k: QueryKey) => (
+    <span key={flash[hash(k)] ?? 0} className={`rounded px-1 font-mono text-xs tabular-nums ${flash[hash(k)] ? 'nq-flashing' : ''}`}>
       {time(at(k))}
     </span>
   )
-  const times = [at(['products', 1]), at(['products', 2])]
 
   return (
-    <>
+    <div className="space-y-4">
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="mb-3 flex items-center justify-between gap-2 text-sm font-semibold">
           {title}
@@ -67,7 +67,7 @@ export function DemoStore({ title }: { title: string }) {
           {PRODUCTS.map((name, i) => (
             <li key={name} className="flex items-center justify-between gap-2 py-2">
               <span>{name}</span>
-              {i < 2 ? stamp(['products', i + 1]) : <span className="font-mono text-xs tabular-nums text-muted-foreground">{time(Math.max(...times, at(['products'])))}</span>}
+              {stamp(['products', i + 1])}
             </li>
           ))}
         </ul>
@@ -76,7 +76,7 @@ export function DemoStore({ title }: { title: string }) {
           {stamp(['stats'])}
         </p>
       </div>
-      <NextQueryDemo entries={entries} onRevalidate={revalidate} position="bottom-left" defaultOpen />
-    </>
+      <NextQueryDemo entries={entries} onRevalidate={revalidate} inline />
+    </div>
   )
 }
