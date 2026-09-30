@@ -3,7 +3,7 @@
 The panel lists a native `fetch` when all of these hold:
 
 - **It has tags.** Add `next: { tags: ['products'] }`. A cached fetch with no tags is not listed: the panel counts it and shows a hint at the bottom of the list.
-- **It uses Next's fetch cache.** A fetch inside a `'use cache'` function or component is not read from the fetch cache, so it is not listed. Neither is a fetch that Next did not cache, such as one with `cache: 'no-store'`.
+- **It is cached.** A fetch with no `revalidate` and no `cache: 'force-cache'` may not be cached. A fetch inside a `'use cache'` function or component is not read from the fetch cache, so it is not listed. Neither is a fetch that Next did not cache, such as one with `cache: 'no-store'`.
 - **It has run.** The panel lists a fetch after it has run and been cached. Visit the page that makes it.
 
 Also check that `<NextQuery />` is in the **root** layout and that you are running `next dev`.

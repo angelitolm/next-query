@@ -3,7 +3,7 @@
 El panel lista un `fetch` nativo cuando se cumple todo esto:
 
 - **Tiene tags.** Añade `next: { tags: ['products'] }`. Un fetch en caché sin tags no aparece: el panel lo cuenta y muestra un aviso al final de la lista.
-- **Usa la caché de fetch de Next.** Un fetch dentro de una función o componente con `'use cache'` no se lee de la caché de fetch, así que no aparece. Tampoco uno que Next no cacheó, como uno con `cache: 'no-store'`.
+- **Está en caché.** Un fetch sin `revalidate` y sin `cache: 'force-cache'` puede no cachearse. Un fetch dentro de una función o componente con `'use cache'` no se lee de la caché de fetch, así que no aparece. Tampoco uno que Next no cacheó, como uno con `cache: 'no-store'`.
 - **Se ha ejecutado.** El panel lista un fetch después de que se ejecute y quede en caché. Visita la página que lo hace.
 
 Comprueba también que `<NextQuery />` esté en el layout **raíz** y que estés ejecutando `next dev`.

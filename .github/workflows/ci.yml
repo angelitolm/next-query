@@ -29,7 +29,7 @@ jobs:
       - run: pnpm --filter docs test
       - run: pnpm --filter docs build
 
-  # Starts `next dev` per version: cache, revalidate by key and the package's server actions (playground/smoke.ts).
+  # Starts `next dev` per version: cache, revalidate by tag and the package's server actions (playground/smoke.ts).
   smoke:
     needs: check
     runs-on: ubuntu-latest

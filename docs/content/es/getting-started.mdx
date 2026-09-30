@@ -31,7 +31,7 @@ export default async function Page() {
 }
 ```
 
-`revalidate` es el número de segundos hasta que los datos quedan obsoletos y se vuelven a pedir en la siguiente lectura; si lo omites, los datos se conservan hasta que los revalides.
+`revalidate` es el número de segundos hasta que los datos quedan obsoletos y se vuelven a pedir en la siguiente lectura; para cachear el fetch, define `next.revalidate` (segundos) o `cache: 'force-cache'`; un fetch sin ninguno de los dos puede no cachearse.
 
 ## 2. Revalídalo
 

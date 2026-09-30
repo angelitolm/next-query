@@ -5,7 +5,7 @@ Un tag es un string plano que Next asocia a una entrada de caché, y [`revalidat
 Etiqueta un fetch con `next.tags`. No hay prefijo ni espacio de nombres: el tag que escribes es el que Next guarda.
 
 ```ts
-fetch(`${API}/products`, { next: { tags: ['products'] } })
+fetch(`${API}/products`, { next: { tags: ['products'], revalidate: 60 } })
 revalidate('products') // expira el tag 'products'
 ```
 
@@ -74,4 +74,4 @@ Next limita los tags de una entrada de caché. `tags()`, `query()` y `revalidate
 
 ## Revalidar todo
 
-**Revalidate all** en [el panel](./panel) revalida cada tag que muestra el panel, en lotes de 128. No toca un tag que ninguna entrada de la lista lleve.
+**Revalidate all** en [el panel](./panel) revalida cada tag de la lista (el filtro no la reduce), en lotes de 128. No toca un tag que ninguna entrada de la lista lleve.

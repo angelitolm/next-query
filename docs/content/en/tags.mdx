@@ -5,7 +5,7 @@ A tag is a plain string that Next attaches to a cached entry, and [`revalidate()
 Tag a fetch with `next.tags`. There is no prefix or namespace: the tag you write is the tag Next stores.
 
 ```ts
-fetch(`${API}/products`, { next: { tags: ['products'] } })
+fetch(`${API}/products`, { next: { tags: ['products'], revalidate: 60 } })
 revalidate('products') // expires the tag 'products'
 ```
 
@@ -74,4 +74,4 @@ Next limits the tags of a cache entry. `tags()`, `query()` and `revalidate()` ch
 
 ## Revalidate all
 
-**Revalidate all** in [the panel](./panel) revalidates every tag shown in the panel, in batches of 128. It does not touch a tag that no listed entry carries.
+**Revalidate all** in [the panel](./panel) revalidates every tag in the list (the filter does not narrow it), in batches of 128. It does not touch a tag that no listed entry carries.

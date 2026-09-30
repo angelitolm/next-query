@@ -31,7 +31,7 @@ export default async function Page() {
 }
 ```
 
-`revalidate` is the number of seconds until the data is stale and refetched on the next read; leave it out and the data is kept until you revalidate it.
+`revalidate` is the number of seconds until the data is stale and refetched on the next read; to cache the fetch, set `next.revalidate` (seconds) or `cache: 'force-cache'`; a fetch with neither may not be cached.
 
 ## 2. Revalidate it
 
