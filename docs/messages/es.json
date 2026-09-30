@@ -69,6 +69,7 @@
     "simulated": "Todo esto se ejecuta en tu navegador: el panel es la UI real, alimentada con queries simuladas.",
     "sidebarCta": "Prueba la demo en vivo",
     "store": "Almacén de datos simulado",
+    "tryTitle": "Pruébalo",
     "try": {
       "revalidateCard": "revalida una tarjeta con ↻",
       "revalidatePrefix": "haz clic en el tag `#nq:products` para revalidar todos los productos",

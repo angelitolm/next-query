@@ -228,3 +228,11 @@ body {
 [data-rehype-pretty-code-figure]:not(:has([data-rehype-pretty-code-title])):not(:has(.code-lang)) pre {
   padding-right: 3rem;
 }
+
+/* Demo store: a changed value flashes in the brand color once. */
+@keyframes nq-flash {
+  from { background-color: var(--brand-soft); color: var(--brand-text); box-shadow: 0 0 0 2px var(--brand-from); }
+  to { background-color: transparent; box-shadow: 0 0 0 2px transparent; }
+}
+.nq-flashing { animation: nq-flash 1.2s ease-out; }
+@media (prefers-reduced-motion: reduce) { .nq-flashing { animation: none; } }

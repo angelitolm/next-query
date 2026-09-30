@@ -69,6 +69,7 @@
     "simulated": "Everything here runs in your browser: the panel is the real UI, fed with simulated queries.",
     "sidebarCta": "Try the live demo",
     "store": "Simulated data store",
+    "tryTitle": "Try it",
     "try": {
       "revalidateCard": "revalidate one card with ↻",
       "revalidatePrefix": "click the `#nq:products` tag to revalidate every product",
