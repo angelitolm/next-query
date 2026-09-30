@@ -1,6 +1,6 @@
 {
   "name": "@angelitolm/next-query",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Cache server data by key and revalidate it by key in the Next.js App Router, with a dev panel that lists and revalidates every query",
   "keywords": ["nextjs", "next", "app-router", "cache", "revalidate", "unstable_cache", "revalidate-tag", "server-actions", "devtools", "react"],
   "author": "Angel Labrada Massó",
@@ -19,12 +19,13 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist", "logo.svg"],
+  "files": ["dist", "README.md", "logo.svg"],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
     "test": "node --test src/core.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepack": "node -e \"require('node:fs').copyFileSync('../../README.md','README.md');require('node:fs').copyFileSync('../../LICENSE','LICENSE')\""
   },
   "peerDependencies": {
     "next": ">=15",

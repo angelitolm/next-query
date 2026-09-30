@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 6 * * 1' # Mondays: catch Next canary changes before users do
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @angelitolm/next-query typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+  # Starts `next dev` per version: cache, revalidate by key and the package's server actions (playground/smoke.ts).
+  smoke:
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Canary breaking is a heads-up, not a blocker.
+    continue-on-error: ${{ matrix.next == 'canary' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        next: ['15.0.4', '15.5', '16.0', latest, canary]
+    name: smoke (next ${{ matrix.next }})
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm --filter playground add next@${{ matrix.next }}
+      - run: pnpm --filter playground smoke

@@ -2,7 +2,7 @@
 // caches, revalidate() expires by prefix, and the package's server actions compile and run.
 // Run: pnpm --filter playground smoke
 import { spawn, execSync } from 'node:child_process'
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -10,6 +10,9 @@ const PORT = 3199
 const BASE = `http://localhost:${PORT}`
 const version: string = JSON.parse(readFileSync(new URL('./node_modules/next/package.json', import.meta.url), 'utf8')).version
 console.log(`next ${version}`)
+
+// A stale cache entry from an earlier run is served stale-while-revalidate and breaks the "cached" check.
+rmSync(fileURLToPath(new URL('./.next/', import.meta.url)), { recursive: true, force: true })
 
 const posix = process.platform !== 'win32'
 const server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '--port', String(PORT)], {

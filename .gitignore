@@ -12,3 +12,5 @@ next-env.d.ts
 .npmrc
 playground/AGENTS.md
 playground/CLAUDE.md
+packages/next-query/README.md
+packages/next-query/LICENSE

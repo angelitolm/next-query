@@ -1,0 +1,33 @@
+name: Publish
+
+# Push a tag matching the package version (e.g. v0.1.0) to publish to npm with provenance.
+# Auth is npm trusted publishing (OIDC), configured on npmjs.com; no token secret.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write # OIDC for trusted publishing and the provenance attestation
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: npm install -g npm@latest # trusted publishing needs npm >= 11.5.1
+      - run: pnpm install --frozen-lockfile
+      - name: Tag must match package version
+        run: test "v$(node -p "require('./packages/next-query/package.json').version")" = "$GITHUB_REF_NAME"
+      - run: pnpm --filter @angelitolm/next-query typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: npm publish --provenance
+        working-directory: packages/next-query
