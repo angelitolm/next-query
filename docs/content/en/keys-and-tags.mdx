@@ -28,6 +28,8 @@ Each key produces one tag per segment, plus a root tag. Segments are joined with
 
 The root tag `nq` is on every query. It is what **Revalidate all** in [the panel](./panel) uses.
 
+`tags(key)` returns these tags, so a native `fetch` can join the same scheme: `fetch(url, { next: { tags: tags(['products', 1]) } })` is expired by `revalidate('products')`.
+
 ## Escaping
 
 `/` separates segments inside a tag, so it is escaped when it appears inside one: `/` becomes `%2F` and `%` becomes `%25`. This keeps keys apart that would otherwise collide:

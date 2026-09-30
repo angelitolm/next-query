@@ -41,6 +41,13 @@ export function keyToTags(key: QueryKey): string[] {
   return tags
 }
 
+/** The cache tags for `key`, for tagging a native fetch: `fetch(url, { next: { tags: tags('products') } })`. `revalidate('products')` then expires it too. */
+export function tags(key: QueryKey | string): string[] {
+  const k = normalizeKey(key)
+  validateKey(k)
+  return keyToTags(k)
+}
+
 export function validateKey(key: unknown): asserts key is QueryKey {
   if (!Array.isArray(key) || key.length === 0) throw new TypeError('next-query: key must be a non-empty array')
   for (const s of key) {

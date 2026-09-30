@@ -78,6 +78,16 @@ const products = await query(['products'], () => fetch(url).then((r) => r.json()
 
 Un `fetch()` suelto sigue usando la caché de datos de Next como siempre, pero next-query no lo ve: `revalidate(key)` solo expira los tags `nq:*` y el panel solo lista las llamadas a `query()`.
 
+Para conservar un `fetch()` suelto y aun así revalidarlo por clave, márcalo con `tags()`:
+
+```ts
+import { tags } from '@angelitolm/next-query'
+
+const res = await fetch(url, { next: { tags: tags('products') } })
+```
+
+`revalidate('products')` ahora también lo expira. No aparece en el panel: solo lo hacen las llamadas a `query()`.
+
 ## Cómo funciona
 
 `query()` envuelve `fn` en `unstable_cache` con las partes de clave `['next-query', <JSON de la clave>]` y con los tags derivados de la clave (mira [Claves y tags](./keys-and-tags)). No se guarda nada más, y no se usa `'use cache'`. Como el JSON de la clave forma parte de la clave de caché, `['products', 1]` y `['products', '1']` son entradas distintas.

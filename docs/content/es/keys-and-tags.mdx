@@ -28,6 +28,8 @@ Cada clave produce un tag por segmento, más un tag raíz. Los segmentos se unen
 
 El tag raíz `nq` está en todas las queries. Es el que usa **Revalidate all** en [el panel](./panel).
 
+`tags(key)` devuelve estos tags, así un `fetch` nativo puede entrar en el mismo esquema: `fetch(url, { next: { tags: tags(['products', 1]) } })` lo expira `revalidate('products')`.
+
 ## Escapado
 
 `/` separa segmentos dentro de un tag, así que se escapa cuando aparece dentro de uno: `/` pasa a ser `%2F` y `%` pasa a ser `%25`. Así se mantienen separadas claves que de otro modo chocarían:

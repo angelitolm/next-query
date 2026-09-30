@@ -66,6 +66,12 @@ The sidebar order, prev/next links and titles come from one `lib/pages.ts` plus 
 - `pnpm --filter docs build` must pass. It runs in CI as a new step in the `check` job.
 - Visual check in a real browser by the controller: docs pages in light and dark, the demo, and 375px width.
 
+## Additions during execution (2026-09-30)
+
+- `NextQueryDemo` gets an `inline` prop (panel embedded in the page, always open) so the demo store stays visible.
+- The docs layout does not mount `<NextQuery />` (the site has no queries; it produced a second panel on /demo).
+- Package: `tags(key)` returns a key's cache tags so a native `fetch(url, { next: { tags: tags('products') } })` is expired by `revalidate('products')`. Such fetches are not listed in the panel.
+
 ## Non-goals
 
 - A search box and versioned docs.

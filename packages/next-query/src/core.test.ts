@@ -2,7 +2,7 @@ import { test, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   ago, freshness, hashKey, isNextControlFlow, jsonTokens, keyLabel, keyToTags, normalizeKey, prefixes, preview, recordError, recordRead, recordRun, recordSuccess,
-  registry, revalidateEntries, shortDuration, snapshot, sortEntries, status, validateKey, validateRevalidate, type Entry,
+  registry, revalidateEntries, shortDuration, snapshot, sortEntries, status, tags, validateKey, validateRevalidate, type Entry,
 } from './core.ts'
 
 test('keyToTags: root tag plus one tag per prefix', () => {
@@ -198,4 +198,10 @@ test('revalidateEntries refreshes the key and everything under it', () => {
   assert.equal(child[0], list)
   assert.equal(child[1].dataUpdatedAt, 7)
   assert.throws(() => revalidateEntries([list], [], 1), TypeError)
+})
+
+test('tags: cache tags of a key, validated', () => {
+  assert.deepEqual(tags('products'), ['nq', 'nq:products'])
+  assert.deepEqual(tags(['products', 1]), ['nq', 'nq:products', 'nq:products/1'])
+  assert.throws(() => tags([]), TypeError)
 })

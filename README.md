@@ -41,6 +41,8 @@ export async function renameProduct(id: string, name: string) {
 
 `revalidate(['products', id])` revalidates only that product (and keys under it). Call it from server actions and route handlers.
 
+A native `fetch` can join by key too: `fetch(url, { next: { tags: tags('products') } })` (import `tags` from the package), and `revalidate('products')` expires it. It is not listed in the panel.
+
 A page that exports the segment config `export const revalidate = …` can't also import `revalidate`: import it as `import { revalidate as revalidateQuery } from '@angelitolm/next-query'` there.
 
 ## The panel
