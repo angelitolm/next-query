@@ -50,3 +50,4 @@ jobs:
       - run: pnpm build
       - run: pnpm --filter playground add next@${{ matrix.next }}
       - run: pnpm --filter playground smoke
+      - run: pnpm --filter playground smoke:prod

@@ -1,11 +1,13 @@
 // Smoke test against the installed Next version: starts `next dev` and checks that query()
 // caches, revalidate() expires by prefix, and the package's server actions compile and run.
 // Run: pnpm --filter playground smoke
-import { spawn, execSync } from 'node:child_process'
+import { spawn, spawnSync, execSync } from 'node:child_process'
 import { readFileSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+const prod = process.argv.includes('--prod')
+const mode = prod ? ', prod' : ''
 const PORT = 3199
 const BASE = `http://localhost:${PORT}`
 const version: string = JSON.parse(readFileSync(new URL('./node_modules/next/package.json', import.meta.url), 'utf8')).version
@@ -15,7 +17,15 @@ console.log(`next ${version}`)
 rmSync(fileURLToPath(new URL('./.next/', import.meta.url)), { recursive: true, force: true })
 
 const posix = process.platform !== 'win32'
-const server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '--port', String(PORT)], {
+const next = ['node_modules/next/dist/bin/next']
+if (prod) {
+  const build = spawnSync(process.execPath, [...next, 'build'], { cwd: fileURLToPath(new URL('.', import.meta.url)), env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' }, stdio: 'inherit' })
+  if (build.status !== 0) {
+    console.error(`SMOKE FAIL (next ${version}${mode}): next build exited ${build.status}`)
+    process.exit(1)
+  }
+}
+const server = spawn(process.execPath, [...next, prod ? 'start' : 'dev', '--port', String(PORT)], {
   cwd: new URL('.', import.meta.url),
   env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' },
   stdio: ['ignore', 'inherit', 'inherit'],
@@ -28,7 +38,7 @@ const stop = () => {
   } catch {}
 }
 const fail = (msg: string): never => {
-  console.error(`SMOKE FAIL (next ${version}): ${msg}`)
+  console.error(`SMOKE FAIL (next ${version}${mode}): ${msg}`)
   stop()
   process.exit(1)
 }
@@ -73,7 +83,7 @@ if ((await fetchedAt('/products/1')) === one1) fail("revalidate('products') did 
 // call it the way the browser does. The layout mounts <NextQuery />, so / has compiled it.
 const home = await (await fetch(`${BASE}/`)).text()
 // Next 15.0's webpack dev registers actions used by client components only once their client chunks compile, i.e. when a browser requests them.
-for (const [, src] of home.matchAll(/<script[^>]*\ssrc="(\/_next\/static\/[^"]+)"/g)) await (await fetch(BASE + src.replaceAll('&amp;', '&'))).text()
+if (!prod) for (const [, src] of home.matchAll(/<script[^>]*\ssrc="(\/_next\/static\/[^"]+)"/g)) await (await fetch(BASE + src.replaceAll('&amp;', '&'))).text()
 const dist = fileURLToPath(new URL('./.next/', import.meta.url))
 const manifests: string[] = []
 const walk = (dir: string) => {
@@ -119,9 +129,15 @@ const res = await fetch(`${BASE}/`, {
   body: '[]',
 })
 const flight = await res.text()
-if (!res.ok) fail(`getQueries action -> ${res.status}: ${flight.slice(0, 200)}`)
-if (!flight.includes('nq:products')) fail(`getQueries returned no products entry: ${flight.slice(0, 200)}`)
-console.log('getQueries action OK')
+if (prod) {
+  // The actions are dev-only: a production server must not hand out the registry.
+  if (res.ok && flight.includes('nq:products')) fail(`getQueries returned the registry in production: ${flight.slice(0, 200)}`)
+  console.log('dev-only actions refused in production')
+} else {
+  if (!res.ok) fail(`getQueries action -> ${res.status}: ${flight.slice(0, 200)}`)
+  if (!flight.includes('nq:products')) fail(`getQueries returned no products entry: ${flight.slice(0, 200)}`)
+  console.log('getQueries action OK')
+}
 
-console.log(`SMOKE OK (next ${version}): cache + revalidate + actions`)
+console.log(`SMOKE OK (next ${version}${mode}): cache + revalidate + actions${prod ? ' refused' : ''}`)
 stop()
