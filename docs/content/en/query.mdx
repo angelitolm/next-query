@@ -2,6 +2,79 @@
 
 Call `query()` in a Server Component, a route handler or a server action, and every read with the same key shares one cache entry.
 
+## fetch or `query()`?
+
+Use a tagged native `fetch` whenever you can. Use `query()` only when the data doesn't come from Next's `fetch`: Next caches and tags `fetch` itself, and nothing else.
+
+| Your data comes from | Use | Why |
+|---|---|---|
+| `fetch()` to an HTTP API | `fetch(url, { next: { tags, revalidate } })` | Next caches it and the panel reads it from Next's fetch cache |
+| axios, got, `node:http` | `query()` | On the server they don't go through `fetch`, so Next can't cache or tag them |
+| An ORM or a database driver (Prisma, Drizzle, `pg`) | `query()` | Not an HTTP call at all |
+| An SDK (Stripe, an S3 client, a CMS client) | `query()` | Its internal requests don't accept `next.tags` |
+| A file read, a computation | `query()` | Nothing for Next to cache |
+
+### Native fetch: no `query()`
+
+```tsx title="app/products/page.tsx"
+import { tags } from '@angelitolm/next-query'
+
+const res = await fetch('https://api.example.com/products', {
+  next: { tags: tags(['products']), revalidate: 60 },
+})
+const products = await res.json()
+```
+
+### axios: wrap it in `query()`
+
+```tsx title="app/products/page.tsx"
+import axios from 'axios'
+import { query } from '@angelitolm/next-query'
+
+const products = await query(
+  ['products'],
+  async () => (await axios.get('https://api.example.com/products')).data,
+  { revalidate: 60 },
+)
+```
+
+Return `.data`, not the axios response: the result must be JSON-serializable, and the response object carries the request, headers and config.
+
+### Prisma (or any ORM): wrap it in `query()`
+
+```tsx title="app/products/[id]/page.tsx"
+import { query } from '@angelitolm/next-query'
+import { prisma } from '@/lib/prisma'
+
+const product = await query(['products', id], () => prisma.product.findUnique({ where: { id } }))
+```
+
+### An SDK: wrap it in `query()`
+
+```tsx title="app/billing/page.tsx"
+import Stripe from 'stripe'
+import { query } from '@angelitolm/next-query'
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+const prices = await query(['prices'], async () => (await stripe.prices.list({ active: true })).data, { revalidate: 300 })
+```
+
+### Mixing both under one tag
+
+A fetch and a `query()` that share a tag are revalidated together. Here the list comes from an API and one product from the database, and `revalidate('products')` expires both:
+
+```tsx
+fetch('https://api.example.com/products', { next: { tags: tags(['products']), revalidate: 60 } })
+query(['products', id], () => prisma.product.findUnique({ where: { id } }))
+
+// server action
+revalidate('products')
+```
+
+<Callout type="warning" title="Don't wrap a fetch in query()">
+  `query(['products'], () => fetch(url).then((r) => r.json()))` caches the same data twice, in `unstable_cache` and in Next's fetch cache, and the two can go out of sync. Tag the `fetch` instead.
+</Callout>
+
 ## Signature
 
 ```ts title="@angelitolm/next-query"

@@ -104,7 +104,16 @@ Abre una página que ejecute el fetch etiquetado. En la esquina inferior derecha
 
 ## Datos que no son fetch
 
-Si lees de un ORM o de un SDK, envuelve la llamada en `query()` y también recibe tags. Mira [query](./query).
+Etiqueta `fetch` directamente. Todo lo que no pasa por el `fetch` de Next va por `query()`:
+
+| Tu dato viene de | Usa |
+|---|---|
+| `fetch()` | `fetch(url, { next: { tags, revalidate } })` |
+| axios, got | `query(['products'], async () => (await axios.get(url)).data)` |
+| Prisma, Drizzle, un driver de base de datos | `query(['products', id], () => prisma.product.findUnique({ where: { id } }))` |
+| Un SDK (Stripe, S3, un CMS) | `query(['prices'], async () => (await stripe.prices.list()).data)` |
+
+Ejemplos de cada caso, y por qué no conviene envolver un `fetch` en `query()`: mira [¿fetch o query()?](./query#fetch-o-query).
 
 ## Siguientes pasos
 

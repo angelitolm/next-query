@@ -104,7 +104,16 @@ Open a page that runs the tagged fetch. A round launcher with the logo appears i
 
 ## Data that isn't fetch
 
-If you read from an ORM or an SDK, wrap the call in `query()` and it gets tags too. See [query](./query).
+Tag `fetch` directly. Everything that doesn't go through Next's `fetch` goes through `query()`:
+
+| Your data comes from | Use |
+|---|---|
+| `fetch()` | `fetch(url, { next: { tags, revalidate } })` |
+| axios, got | `query(['products'], async () => (await axios.get(url)).data)` |
+| Prisma, Drizzle, a database driver | `query(['products', id], () => prisma.product.findUnique({ where: { id } }))` |
+| An SDK (Stripe, S3, a CMS) | `query(['prices'], async () => (await stripe.prices.list()).data)` |
+
+Examples for each case, and why you shouldn't wrap a `fetch` in `query()`: see [fetch or query()?](./query#fetch-or-query).
 
 ## Next steps
 
