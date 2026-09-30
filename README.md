@@ -2,6 +2,8 @@
 
 Cache server data by key in the Next.js App Router and revalidate it by key. In development, a panel lists every query in your app and revalidates any of them with one click.
 
+Docs and live demo: https://next-query.angellm.dev
+
 ```bash
 pnpm add @angelitolm/next-query
 ```

@@ -26,6 +26,8 @@ jobs:
       - run: pnpm --filter @angelitolm/next-query typecheck
       - run: pnpm test
       - run: pnpm build
+      - run: pnpm --filter docs test
+      - run: pnpm --filter docs build
 
   # Starts `next dev` per version: cache, revalidate by key and the package's server actions (playground/smoke.ts).
   smoke:
