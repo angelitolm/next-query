@@ -4,7 +4,7 @@
 pnpm add @angelitolm/next-query
 ```
 
-npm and yarn work the same way (`npm i …`, `yarn add …`). Install it as a regular dependency, not a dev one: `query()` and `revalidate()` run in production too.
+npm and yarn work the same way (`npm i …`, `yarn add …`). Install it as a regular dependency, not a dev one: `revalidate()`, `tags()` and `query()` run in production too.
 
 ## Requirements
 
@@ -13,21 +13,25 @@ npm and yarn work the same way (`npm i …`, `yarn add …`). Install it as a re
 | Next.js | 15, App Router |
 | React | 19 |
 
-## 1. Cache a query
+## 1. Tag a fetch
 
-Wrap the data you fetch in `query()` in a Server Component:
+In a Server Component, add `next.tags` to a native `fetch`. This is plain Next, and it needs no import:
 
-```tsx title="app/products/[id]/page.tsx"
-import { query } from '@angelitolm/next-query'
-
-export default async function Page({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  const product = await query(['products', id], () => db.product(id), { revalidate: 60 })
-  return <h1>{product.name}</h1>
+```tsx title="app/products/page.tsx"
+export default async function Page() {
+  const res = await fetch(`${API}/products`, { next: { tags: ['products'], revalidate: 60 } })
+  const products: { id: number; name: string }[] = await res.json()
+  return (
+    <ul>
+      {products.map((p) => (
+        <li key={p.id}>{p.name}</li>
+      ))}
+    </ul>
+  )
 }
 ```
 
-The key is an array of strings and numbers. `fn` is any server code, and its result must be JSON-serializable: a `Date` comes back as a string. `revalidate` is the number of seconds until the data is stale and refetched on the next read; leave it out and the data is kept until you revalidate it.
+`revalidate` is the number of seconds until the data is stale and refetched on the next read; leave it out and the data is kept until you revalidate it.
 
 ## 2. Revalidate it
 
@@ -39,7 +43,7 @@ import { revalidate } from '@angelitolm/next-query'
 
 export async function renameProduct(id: string, name: string) {
   await db.rename(id, name)
-  revalidate('products') // ['products'] and everything under it
+  revalidate('products') // revalidateTag('products', { expire: 0 })
 }
 ```
 
@@ -63,7 +67,9 @@ export function RenameForm({ id }: { id: string }) {
 }
 ```
 
-`revalidate(['products', id])` revalidates only that product. Call it from Server Actions and route handlers.
+`revalidate('products')` expires exactly the tag `products`. Call it from Server Actions and route handlers.
+
+To revalidate one product and not the whole list, tag the fetch with the optional `tags()` helper (`fetch(url, { next: { tags: tags(['products', id]) } })`) and call `revalidate(['products', id])`. See [Tags](./tags).
 
 ## 3. Add the panel
 
@@ -90,14 +96,18 @@ Put it in the **root** layout so it survives navigation. Use `position="bottom-l
 pnpm dev
 ```
 
-Open a page that calls `query()`. A round launcher with the logo appears in the bottom-right corner; open it to see the key, its status, a freshness bar and its data. Click ↻ on a card to revalidate that key.
+Open a page that runs the tagged fetch. A round launcher with the logo appears in the bottom-right corner; open it to see the URL, its status, a freshness bar and the response. Click ↻ on a card to revalidate the fetch's tags.
 
-<Callout type="note" title="A query appears once it has run">
-  The panel lists a query after it has run since the dev server started. Visit the page that calls it first.
+<Callout type="note" title="A fetch appears once it has run">
+  The panel reads Next's fetch cache, so a fetch is listed after it has run and been cached. Visit the page that makes it first. A fetch with no `next.tags` is not listed: the panel only counts it and reminds you to add tags.
 </Callout>
+
+## Data that isn't fetch
+
+If you read from an ORM or an SDK, wrap the call in `query()` and it gets tags too. See [query](./query).
 
 ## Next steps
 
-- [query](./query): keys, `fn` and the `revalidate` window.
-- [Keys and tags](./keys-and-tags): how a prefix reaches every key under it.
-- [The panel](./panel): statuses, freshness bars and revalidating from the panel.
+- [Tags](./tags): plain tags, the `tags()` hierarchy, escaping and limits.
+- [revalidate](./revalidate): a tag or a key, and where to call it.
+- [The panel](./panel): fetch and query cards, statuses and revalidating from the panel.

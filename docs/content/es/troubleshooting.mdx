@@ -1,3 +1,13 @@
+## Mi fetch no aparece en el panel
+
+El panel lista un `fetch` nativo cuando se cumple todo esto:
+
+- **Tiene tags.** Añade `next: { tags: ['products'] }`. Un fetch en caché sin tags no aparece: el panel lo cuenta y muestra un aviso al final de la lista.
+- **Usa la caché de fetch de Next.** Un fetch dentro de una función o componente con `'use cache'` no se lee de la caché de fetch, así que no aparece. Tampoco uno que Next no cacheó, como uno con `cache: 'no-store'`.
+- **Se ha ejecutado.** El panel lista un fetch después de que se ejecute y quede en caché. Visita la página que lo hace.
+
+Comprueba también que `<NextQuery />` esté en el layout **raíz** y que estés ejecutando `next dev`.
+
 ## Mi query no aparece en el panel
 
 Una query aparece después de ejecutarse una vez desde que arrancó el servidor de desarrollo. Visita la página que la llama. Si la lista sigue vacía, comprueba que `<NextQuery />` esté en el layout **raíz** y que estés ejecutando `next dev`, porque en cualquier otro caso el panel no renderiza nada.
@@ -16,7 +26,7 @@ const at = new Date(row.at)
 Hay dos casos:
 
 - Con una ventana de `revalidate`, una entrada expirada se sirve una vez más como obsoleta mientras se vuelve a pedir en segundo plano, y la siguiente petición recibe los datos nuevos.
-- Para ver datos frescos en la página actual, llama a `revalidate()` desde una server action o un route handler después de escribir. Eso expira la entrada al momento, y la action refresca la página que la lanzó.
+- Para ver datos frescos en la página actual, llama a `revalidate()` desde una server action o un route handler después de escribir. Eso expira el tag al momento, y la action refresca la página que la lanzó.
 
 ## `revalidate` ya está declarado
 
@@ -30,8 +40,8 @@ Mira [revalidate](./revalidate).
 
 ## TypeError: key segments must be…
 
-La clave incumplió una regla: debe ser un array no vacío de strings no vacíos o números finitos. Las causas habituales son un id `undefined`, un string vacío o `NaN`. La lista completa, con los límites de tags, está en [Claves y tags](./keys-and-tags).
+La clave incumplió una regla: debe ser un array no vacío de strings no vacíos o números finitos. Las causas habituales son un id `undefined`, un string vacío o `NaN`. La lista completa, con los límites de tags, está en [Tags](./tags).
 
-## El panel dice "next-query devtools are dev-only"
+## El panel no se renderiza, o dice "next-query devtools are dev-only"
 
-Las server actions del panel solo se ejecutan en `next dev`. Estás ejecutando `next start`, o una build de producción, y por eso el panel se niega. Es lo esperado. `query()` y `revalidate()` siguen funcionando; mira [Seguridad](./security).
+El panel es solo de desarrollo. Con `next start` o una build de producción, `<NextQuery />` no renderiza ningún panel, y sus server actions se niegan a ejecutarse si algo las llama. Es lo esperado. `query()`, `revalidate()` y `tags()` siguen funcionando; mira [Seguridad](./security).

@@ -27,7 +27,6 @@ const nextConfig: NextConfig = {
   pageExtensions: ['ts', 'tsx', 'mdx'],
   // The docs dogfood the panel; Next's own indicator would cover the header buttons.
   devIndicators: false,
-  experimental: {},
 }
 
 export default withNextIntl(withMDX(nextConfig))

@@ -1,4 +1,4 @@
-`revalidate()` expira los datos cacheados bajo una clave, de modo que la siguiente lectura vuelve a ejecutar `fn`.
+`revalidate()` expira un tag, de modo que la siguiente lectura de todo lo que lo lleve vuelve a ejecutarse.
 
 ## Firma
 
@@ -6,7 +6,10 @@
 function revalidate(key: QueryKey | string): void
 ```
 
-Un string es la forma corta de una clave de un solo segmento: `revalidate('products')` equivale a `revalidate(['products'])`.
+- Un **string** es un tag: `revalidate('products')` expira exactamente el tag `products`. Debe tener de 1 a 256 caracteres; si no, lanza un `TypeError`.
+- Una **clave** (un array) expira el tag más profundo de la clave: `revalidate(['products', 1])` es `revalidate('products/1')`.
+
+Ambas llaman a `revalidateTag(tag, { expire: 0 })`.
 
 ```ts title="app/actions.ts"
 'use server'
@@ -14,20 +17,21 @@ import { revalidate } from '@angelitolm/next-query'
 
 export async function renameProduct(id: string, name: string) {
   await db.rename(id, name)
-  revalidate(['products', id]) // este producto y todo lo que cuelga de él
+  revalidate('products') // cada fetch y query que lleve el tag 'products'
 }
 ```
 
-## Semántica de prefijo
+## Semántica de los tags
 
-Una clave cubre la propia clave y todas las que empiezan por ella.
+`revalidate` expira un tag, y todas las entradas que lo llevan. Qué entradas lo llevan depende de cómo las etiquetaste:
 
-| Llamada | Revalida |
-|---|---|
-| `revalidate('products')` | `['products']`, `['products', 1]`, `['products', 1, 'reviews']` |
-| `revalidate(['products', 1])` | `['products', 1]` y lo de debajo, no `['products']` |
+| Etiquetada con | `revalidate('products')` | `revalidate(['products', 1])` |
+|---|---|---|
+| `['products']` | sí | no |
+| `tags(['products', 1])`, es decir `['products', 'products/1']` | sí | sí |
+| `tags(['products', 2])`, es decir `['products', 'products/2']` | sí | no |
 
-Diseña tus claves de lo general a lo específico (`['products', id, 'reviews']`) y una sola llamada puede refrescar una rama entera. En [Claves y tags](./keys-and-tags) ves cómo se traduce esto a tags.
+Etiqueta de lo general a lo específico con [`tags()`](./tags) y una sola llamada puede refrescar una rama entera.
 
 ## Dónde llamarla
 
@@ -47,7 +51,7 @@ Una clave inválida lanza el mismo `TypeError` que `query()`.
 
 ## Por debajo
 
-`revalidate()` llama a `revalidateTag(<tag más profundo de la clave>, { expire: 0 })`. `expire: 0` expira la entrada al instante en Next 16; en Next 15, `revalidateTag` no recibe segundo argumento y lo ignora. El mismo código funciona en ambos.
+`revalidate()` llama a `revalidateTag(<el tag>, { expire: 0 })`. `expire: 0` expira la entrada al instante en Next 16; en Next 15, `revalidateTag` no recibe segundo argumento y lo ignora. El mismo código funciona en ambos.
 
 ## El choque de nombres con `export const revalidate`
 

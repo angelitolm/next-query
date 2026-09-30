@@ -1,53 +1,77 @@
-A key is an array that names a cache entry and, one segment at a time, a chain of tags that [`revalidate()`](./revalidate) targets. This page has the exact rules.
+A tag is a plain string that Next attaches to a cached entry, and [`revalidate()`](./revalidate) expires by it. You can tag a native `fetch` with any string, and `tags()` builds a hierarchy of tags from a key when you want one. This page has the exact rules.
+
+## Plain tags
+
+Tag a fetch with `next.tags`. There is no prefix or namespace: the tag you write is the tag Next stores.
+
+```ts
+fetch(`${API}/products`, { next: { tags: ['products'] } })
+revalidate('products') // expires the tag 'products'
+```
+
+## The tags() hierarchy
+
+`tags(key)` turns a key into one tag per segment. The segments are joined with `/`:
+
+| Call | Returns |
+|---|---|
+| `tags('products')` | `['products']` |
+| `tags(['products', 1])` | `['products', 'products/1']` |
+| `tags(['products', 1, 'reviews'])` | `['products', 'products/1', 'products/1/reviews']` |
+
+Use it on the fetch:
+
+```ts
+import { tags } from '@angelitolm/next-query'
+
+fetch(`${API}/products/${id}`, { next: { tags: tags(['products', id]) } })
+```
+
+Every product carries the tag `products`, so `revalidate('products')` reaches all of them, and `revalidate(['products', 1])` reaches only product 1. That is how one tag covers a whole branch.
+
+`revalidate(key)` with an array expires the key's **deepest** tag, the same as `revalidate(tags(key).at(-1))`. So `revalidate('products/1')` equals `revalidate(['products', 1])`.
+
+`query()` tags its entry with `tags(key)`, so a query and a fetch share the same scheme. See [query](./query).
 
 ## Key rules
 
-- The key is a **non-empty array**.
+`tags()` and `query()` validate the key, and `revalidate()` validates it when you pass an array:
+
+- The key is a **non-empty array**. In `tags()`, a string is shorthand for a one-segment key.
 - Each segment is a **non-empty string** or a **finite number**. `NaN`, `Infinity`, `''`, `null`, objects and booleans throw a `TypeError`.
 
 ```ts title="Valid and invalid keys"
-query(['products'], fn)               // ok
-query(['products', 1, 'reviews'], fn) // ok
-query([], fn)                         // TypeError: key must be a non-empty array
-query(['products', ''], fn)           // TypeError: key segments must be non-empty strings or finite numbers
-query(['products', NaN], fn)          // TypeError
+tags(['products'])               // ok
+tags(['products', 1, 'reviews']) // ok
+tags([])                         // TypeError: key must be a non-empty array
+tags(['products', ''])           // TypeError: key segments must be non-empty strings or finite numbers
+tags(['products', NaN])          // TypeError
 ```
 
-`['products', 1]` and `['products', '1']` are **different cache entries**, because the entry is keyed by the JSON of the key. They share the same tags, so revalidating either one refreshes both.
-
-## Tags
-
-Each key produces one tag per segment, plus a root tag. Segments are joined with `/`:
-
-| Key | Tags |
-|---|---|
-| `['products', 1]` | `nq`, `nq:products`, `nq:products/1` |
-| `['products', 1, 'reviews']` | `nq`, `nq:products`, `nq:products/1`, `nq:products/1/reviews` |
-
-`revalidate(key)` expires the **deepest** tag of the key, and every entry below it carries that tag. That is what makes revalidation work by prefix.
-
-The root tag `nq` is on every query. It is what **Revalidate all** in [the panel](./panel) uses.
-
-`tags(key)` returns these tags, so a native `fetch` can join the same scheme: `fetch(url, { next: { tags: tags(['products', 1]) } })` is expired by `revalidate('products')`.
+`['products', 1]` and `['products', '1']` give the same tags. As `query()` keys they are **different cache entries**, because a query is keyed by the JSON of its key.
 
 ## Escaping
 
 `/` separates segments inside a tag, so it is escaped when it appears inside one: `/` becomes `%2F` and `%` becomes `%25`. This keeps keys apart that would otherwise collide:
 
-| Key | Tag |
+| Key | Tags |
 |---|---|
-| `['a/b']` | `nq:a%2Fb` |
-| `['a', 'b']` | `nq:a/b` |
+| `['a/b']` | `['a%2Fb']` |
+| `['a', 'b']` | `['a', 'a/b']` |
 
-So `['a/b']` and `['a', 'b']` are unrelated, and `revalidate('a')` does not reach `['a/b']`.
+So `['a/b']` and `['a', 'b']` are unrelated, and `revalidate(['a'])` does not reach `['a/b']`.
 
 ## Limits
 
-Next limits the tags of a cache entry, and next-query checks both limits up front and throws a `TypeError`:
+Next limits the tags of a cache entry. `tags()`, `query()` and `revalidate()` check both limits up front and throw a `TypeError`:
 
-- **256 characters** per tag. Long segments count, and so do the `nq:` prefix and escaping.
-- **128 tags** per entry. A key makes one tag per segment plus the root, so a key can have at most **127 segments**.
+- **256 characters** per tag. A long segment counts, and so does escaping. A string passed to `revalidate()` must be 1 to 256 characters.
+- **128 tags** per entry. A key makes one tag per segment, so a key can have at most **128 segments**.
 
 <Callout type="note" title="Keep keys short and structured">
-  A key like `['posts', slug]` is a name, not a payload. Put a value in the key only when it changes what `fn` returns.
+  A key like `['posts', slug]` is a name, not a payload. Put a value in the key only when it changes what the data is.
 </Callout>
+
+## Revalidate all
+
+**Revalidate all** in [the panel](./panel) revalidates every tag shown in the panel, in batches of 128. It does not touch a tag that no listed entry carries.

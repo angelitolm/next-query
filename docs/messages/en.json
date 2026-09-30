@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "next-query docs",
-    "description": "Cache server data by key in the Next.js App Router, revalidate it by key, and see every query in a dev panel."
+    "description": "Tag your native fetch, revalidate it by tag in the Next.js App Router, and see every tagged fetch in a dev panel."
   },
   "ui": {
     "docs": "Docs",
@@ -28,23 +28,23 @@
     },
     "getting-started": {
       "title": "Getting started",
-      "description": "Install the package, cache a query, revalidate it and open the panel."
+      "description": "Install the package, tag a fetch, revalidate it and open the panel."
     },
     "query": {
       "title": "query",
-      "description": "Cache server data by key, with an optional revalidate window."
+      "description": "Cache data that isn't fetch (an ORM, an SDK) under a key, with the same tags."
     },
     "revalidate": {
       "title": "revalidate",
-      "description": "Revalidate a key, or everything under a prefix, from server actions and route handlers."
+      "description": "Revalidate a tag, or a query key, from server actions and route handlers."
     },
-    "keys-and-tags": {
-      "title": "Keys and tags",
-      "description": "How a key becomes cache tags, and how prefixes cover every key under them."
+    "tags": {
+      "title": "Tags",
+      "description": "Plain cache tags, the tags() hierarchy, escaping and limits."
     },
     "panel": {
       "title": "The panel",
-      "description": "The dev panel: queries, freshness bars, revalidating and the data of each key."
+      "description": "The dev panel: tagged fetches and queries, freshness bars, revalidating and the data of each entry."
     },
     "compatibility": {
       "title": "Compatibility",
@@ -65,14 +65,14 @@
   },
   "demo": {
     "title": "Live demo",
-    "description": "The real panel, running on simulated queries. Revalidate a key and watch it refetch.",
-    "simulated": "Everything here runs in your browser: the panel is the real UI, fed with simulated queries.",
+    "description": "The real panel, running on simulated fetches and a query. Revalidate a tag and watch it refetch.",
+    "simulated": "Everything here runs in your browser: the panel is the real UI, fed with simulated entries.",
     "sidebarCta": "Try the live demo",
     "store": "Simulated data store",
     "tryTitle": "Try it",
     "try": {
-      "revalidateCard": "revalidate one card with ↻",
-      "revalidatePrefix": "click the `#nq:products` tag to revalidate every product",
+      "revalidateCard": "open the NQ button in the bottom-right corner, then revalidate a fetch with ↻",
+      "revalidatePrefix": "click the `products` tag to revalidate every product",
       "revalidateAll": "Revalidate all",
       "bars": "watch the bars count down",
       "copy": "copy the JSON"

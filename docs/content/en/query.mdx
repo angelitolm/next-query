@@ -1,4 +1,6 @@
-`query()` caches the result of any server code under a key. Call it in a Server Component, a route handler or a server action, and every read with the same key shares one cache entry.
+`query()` is for data that isn't `fetch`: an ORM call, an SDK call, a file read. It caches the result of any server code under a key, and tags it the same way a tagged fetch is tagged, so [`revalidate()`](./revalidate) and [the panel](./panel) treat both alike. If you can tag a native `fetch`, do that instead: see [Getting started](./getting-started).
+
+Call `query()` in a Server Component, a route handler or a server action, and every read with the same key shares one cache entry.
 
 ## Signature
 
@@ -19,8 +21,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 }
 ```
 
-- `key` names the entry, and it is also what you [revalidate](./revalidate) by. The rules are in [Keys and tags](./keys-and-tags).
-- `fn` is any server code: a `fetch`, an ORM call, a file read. It runs on a cache miss.
+- `key` names the entry, and its tags are `tags(key)`. `revalidate(['products', id])` and `revalidate('products')` both reach it. The rules are in [Tags](./tags).
+- `fn` is any server code: an ORM call, an SDK call, a file read. It runs on a cache miss.
 - `config.revalidate` is the number of seconds until the data is stale, or `false` (the default) to keep it until you revalidate it. Anything else, such as `0`, a negative number or `NaN`, throws a `TypeError`.
 
 ## The result must be JSON-serializable
@@ -53,6 +55,9 @@ If `fn` throws, nothing is cached: the next read runs `fn` again. The error is r
 `notFound()` and `redirect()` inside `fn` are control flow, not failures. They pass through untouched and are not recorded as errors.
 
 ```tsx title="app/products/[id]/page.tsx"
+import { notFound } from 'next/navigation'
+import { query } from '@angelitolm/next-query'
+
 const product = await query(['products', id], async () => {
   const row = await db.product(id)
   if (!row) notFound() // reaches Next's not-found page, not the panel's error list
@@ -68,26 +73,6 @@ With `revalidate: 60`, the data is fresh for 60 seconds. The first read after th
   Call [`revalidate()`](./revalidate) from a server action. It expires the entry immediately instead of waiting for the window.
 </Callout>
 
-## What about native fetch?
-
-Wrap it in `query()` and it shows up in the panel, and `revalidate('products')` reaches it:
-
-```ts
-const products = await query(['products'], () => fetch(url).then((r) => r.json()), { revalidate: 60 })
-```
-
-A bare `fetch()` still uses Next's data cache as usual, but next-query does not see it: `revalidate(key)` only expires `nq:*` tags, and the panel only lists `query()` calls.
-
-To keep a bare `fetch()` and still revalidate it by key, tag it with `tags()`:
-
-```ts
-import { tags } from '@angelitolm/next-query'
-
-const res = await fetch(url, { next: { tags: tags('products') } })
-```
-
-`revalidate('products')` now expires it too. It does not appear in the panel: only `query()` calls do.
-
 ## How it works
 
-`query()` wraps `fn` in `unstable_cache` with the key parts `['next-query', <JSON of the key>]`, and with the tags derived from the key (see [Keys and tags](./keys-and-tags)). Nothing else is stored, and `'use cache'` is not used. Because the JSON of the key is part of the cache key, `['products', 1]` and `['products', '1']` are different entries.
+`query()` wraps `fn` in `unstable_cache` with the key parts `['next-query', <JSON of the key>]`, and with the tags `tags(key)` (see [Tags](./tags)). Nothing else is stored, and `'use cache'` is not used. Because the JSON of the key is part of the cache key, `['products', 1]` and `['products', '1']` are different entries.

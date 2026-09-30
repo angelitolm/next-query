@@ -23,7 +23,7 @@ El playground corre en `http://localhost:3100`.
 
 ## Smoke test
 
-El smoke test arranca una app Next real y comprueba la caché, la revalidación por prefijo y las server actions del panel, con la versión de Next instalada en el playground:
+El smoke test arranca una app Next real y comprueba la caché y la revalidación por tag (de un fetch nativo etiquetado y de `query()`) y las server actions del panel, con la versión de Next instalada en el playground. En producción comprueba además que el bundle de cliente no contiene el panel:
 
 ```bash
 pnpm --filter playground smoke        # next dev

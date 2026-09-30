@@ -1,4 +1,6 @@
-`query()` cachea el resultado de cualquier código de servidor bajo una clave. Llámala en un Server Component, un route handler o una server action, y todas las lecturas con la misma clave comparten una entrada de caché.
+`query()` es para los datos que no son `fetch`: una llamada al ORM, una llamada a un SDK, la lectura de un archivo. Cachea el resultado de cualquier código de servidor bajo una clave, y lo etiqueta igual que un fetch etiquetado, así que [`revalidate()`](./revalidate) y [el panel](./panel) tratan a ambos por igual. Si puedes etiquetar un `fetch` nativo, hazlo así: mira [Empezar](./getting-started).
+
+Llama a `query()` en un Server Component, un route handler o una server action, y todas las lecturas con la misma clave comparten una entrada de caché.
 
 ## Firma
 
@@ -19,8 +21,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 }
 ```
 
-- `key` da nombre a la entrada, y es también la clave por la que [revalidas](./revalidate). Las reglas están en [Claves y tags](./keys-and-tags).
-- `fn` es cualquier código de servidor: un `fetch`, una llamada al ORM, la lectura de un archivo. Se ejecuta cuando la caché no tiene el dato.
+- `key` da nombre a la entrada, y sus tags son `tags(key)`. Tanto `revalidate(['products', id])` como `revalidate('products')` la alcanzan. Las reglas están en [Tags](./tags).
+- `fn` es cualquier código de servidor: una llamada al ORM, una llamada a un SDK, la lectura de un archivo. Se ejecuta cuando la caché no tiene el dato.
 - `config.revalidate` son los segundos hasta que los datos quedan obsoletos, o `false` (por defecto) para conservarlos hasta que los revalides. Cualquier otro valor, como `0`, un número negativo o `NaN`, lanza un `TypeError`.
 
 ## El resultado debe ser serializable a JSON
@@ -53,6 +55,9 @@ Si `fn` lanza un error, no se cachea nada: la siguiente lectura vuelve a ejecuta
 `notFound()` y `redirect()` dentro de `fn` son control de flujo, no fallos. Pasan sin tocarse y no se registran como errores.
 
 ```tsx title="app/products/[id]/page.tsx"
+import { notFound } from 'next/navigation'
+import { query } from '@angelitolm/next-query'
+
 const product = await query(['products', id], async () => {
   const row = await db.product(id)
   if (!row) notFound() // llega a la página not-found de Next, no a la lista de errores del panel
@@ -68,26 +73,6 @@ Con `revalidate: 60`, los datos están frescos durante 60 segundos. La primera l
   Llama a [`revalidate()`](./revalidate) desde una server action. Expira la entrada al momento, sin esperar a que termine la ventana.
 </Callout>
 
-## ¿Y el fetch nativo?
-
-Envuélvelo en `query()` y aparece en el panel, y `revalidate('products')` lo alcanza:
-
-```ts
-const products = await query(['products'], () => fetch(url).then((r) => r.json()), { revalidate: 60 })
-```
-
-Un `fetch()` suelto sigue usando la caché de datos de Next como siempre, pero next-query no lo ve: `revalidate(key)` solo expira los tags `nq:*` y el panel solo lista las llamadas a `query()`.
-
-Para conservar un `fetch()` suelto y aun así revalidarlo por clave, márcalo con `tags()`:
-
-```ts
-import { tags } from '@angelitolm/next-query'
-
-const res = await fetch(url, { next: { tags: tags('products') } })
-```
-
-`revalidate('products')` ahora también lo expira. No aparece en el panel: solo lo hacen las llamadas a `query()`.
-
 ## Cómo funciona
 
-`query()` envuelve `fn` en `unstable_cache` con las partes de clave `['next-query', <JSON de la clave>]` y con los tags derivados de la clave (mira [Claves y tags](./keys-and-tags)). No se guarda nada más, y no se usa `'use cache'`. Como el JSON de la clave forma parte de la clave de caché, `['products', 1]` y `['products', '1']` son entradas distintas.
+`query()` envuelve `fn` en `unstable_cache` con las partes de clave `['next-query', <JSON de la clave>]` y con los tags `tags(key)` (mira [Tags](./tags)). No se guarda nada más, y no se usa `'use cache'`. Como el JSON de la clave forma parte de la clave de caché, `['products', 1]` y `['products', '1']` son entradas distintas.

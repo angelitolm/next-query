@@ -1,18 +1,21 @@
 ## What runs in production
 
-Only `query()` and `revalidate()`. They are the library. Everything else in the package is for development.
+`query()`, `revalidate()` and `tags()`. They are the library. Everything else in the package is for development.
+
+The demo component `NextQueryDemo` lives at `@angelitolm/next-query/demo`, not in the package root. It renders in production with only the entries you pass it and never calls the server, so it needs no dev guard. It is meant for docs and demos.
 
 ## The panel is dev-only
 
 - The query registry that feeds the panel exists only in `next dev`. In a production build the code that fills it is removed.
-- `<NextQuery />` renders `null` outside development and is tree-shaken, so the **production client bundle contains no panel code**.
-- The panel talks to the server through server actions. A server action is a **public endpoint**, like any other. Each one throws `next-query devtools are dev-only` outside development, and the keys the browser sends are validated before they are used.
+- The panel reads the `.next` cache files (Next's fetch cache) and shows response previews in development only.
+- `<NextQuery />` renders `null` outside development and is tree-shaken, so the **production client bundle contains no panel code**. The playground's production smoke test checks this on every production run.
+- The panel talks to the server through server actions. A server action is a **public endpoint**, like any other. Each one throws `next-query devtools are dev-only` outside development, and the tags the browser sends are validated before they are used.
 
 <Callout type="warning" title="next dev listens on your network">
-  While `next dev` runs, anyone who can reach it (usually everyone on your LAN) can read query previews, up to about 16 KB each, and revalidate queries. This is the same exposure as `next dev` itself. Do not run it on an untrusted network, and never expose a dev server to the internet.
+  While `next dev` runs, anyone who can reach it (usually everyone on your LAN) can read previews of your cached fetch responses and query data, up to about 16 KB each, and revalidate tags. This is the same exposure as `next dev` itself. Do not run it on an untrusted network, and never expose a dev server to the internet.
 </Callout>
 
 ## What to keep in mind
 
-- A query preview is the query's data as JSON. If `fn` returns something private, it shows up in the panel in development.
+- A preview is the response body of a tagged fetch, or the data of a query, as JSON or text. If it is something private, it shows up in the panel in development.
 - Revalidating is harmless by design: it expires cached data, and the next read refetches it.

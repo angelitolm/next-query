@@ -18,7 +18,7 @@ import type { Locale } from '@/i18n/routing'
 // Titles and descriptions live in messages/<locale>.json under `pages.<slug>`.
 export const SECTIONS = [
   { key: 'start', pages: ['index', 'getting-started'] },
-  { key: 'guide', pages: ['query', 'revalidate', 'keys-and-tags', 'panel'] },
+  { key: 'guide', pages: ['tags', 'revalidate', 'query', 'panel'] },
   { key: 'reference', pages: ['compatibility', 'security', 'troubleshooting'] },
   { key: 'project', pages: ['contributing'] },
 ] as const
@@ -34,7 +34,7 @@ export const ICONS: Record<Slug, Icon> = {
   'getting-started': Flash,
   query: Box,
   revalidate: Refresh2,
-  'keys-and-tags': Hashtag,
+  tags: Hashtag,
   panel: Element3,
   compatibility: TickCircle,
   security: ShieldTick,
@@ -59,7 +59,7 @@ const CONTENT: Record<Locale, Record<Slug, Loader>> = {
     'getting-started': () => import('@/content/en/getting-started.mdx'),
     query: () => import('@/content/en/query.mdx'),
     revalidate: () => import('@/content/en/revalidate.mdx'),
-    'keys-and-tags': () => import('@/content/en/keys-and-tags.mdx'),
+    tags: () => import('@/content/en/tags.mdx'),
     panel: () => import('@/content/en/panel.mdx'),
     compatibility: () => import('@/content/en/compatibility.mdx'),
     security: () => import('@/content/en/security.mdx'),
@@ -71,7 +71,7 @@ const CONTENT: Record<Locale, Record<Slug, Loader>> = {
     'getting-started': () => import('@/content/es/getting-started.mdx'),
     query: () => import('@/content/es/query.mdx'),
     revalidate: () => import('@/content/es/revalidate.mdx'),
-    'keys-and-tags': () => import('@/content/es/keys-and-tags.mdx'),
+    tags: () => import('@/content/es/tags.mdx'),
     panel: () => import('@/content/es/panel.mdx'),
     compatibility: () => import('@/content/es/compatibility.mdx'),
     security: () => import('@/content/es/security.mdx'),

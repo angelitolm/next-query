@@ -1,4 +1,4 @@
-`revalidate()` expires the cached data under a key, so the next read runs `fn` again.
+`revalidate()` expires a tag, so the next read of anything that carries it runs again.
 
 ## Signature
 
@@ -6,7 +6,10 @@
 function revalidate(key: QueryKey | string): void
 ```
 
-A string is shorthand for a one-segment key: `revalidate('products')` is `revalidate(['products'])`.
+- A **string** is a tag: `revalidate('products')` expires exactly the tag `products`. It must be 1 to 256 characters, otherwise it throws a `TypeError`.
+- A **key** (an array) expires the key's deepest tag: `revalidate(['products', 1])` is `revalidate('products/1')`.
+
+Both call `revalidateTag(tag, { expire: 0 })`.
 
 ```ts title="app/actions.ts"
 'use server'
@@ -14,20 +17,21 @@ import { revalidate } from '@angelitolm/next-query'
 
 export async function renameProduct(id: string, name: string) {
   await db.rename(id, name)
-  revalidate(['products', id]) // this product, and anything below it
+  revalidate('products') // every fetch and query that carries the tag 'products'
 }
 ```
 
-## Prefix semantics
+## Tag semantics
 
-A key covers itself and every key that starts with it.
+`revalidate` expires one tag, and every entry that carries that tag. Which entries carry it is up to how you tagged them:
 
-| Call | Revalidates |
-|---|---|
-| `revalidate('products')` | `['products']`, `['products', 1]`, `['products', 1, 'reviews']` |
-| `revalidate(['products', 1])` | `['products', 1]` and below, not `['products']` |
+| Tagged with | `revalidate('products')` | `revalidate(['products', 1])` |
+|---|---|---|
+| `['products']` | yes | no |
+| `tags(['products', 1])`, that is `['products', 'products/1']` | yes | yes |
+| `tags(['products', 2])`, that is `['products', 'products/2']` | yes | no |
 
-Design your keys from general to specific (`['products', id, 'reviews']`) and one call can refresh a whole branch. See [Keys and tags](./keys-and-tags) for how this maps to tags.
+Tag from general to specific with [`tags()`](./tags) and one call can refresh a whole branch.
 
 ## Where to call it
 
@@ -47,7 +51,7 @@ An invalid key throws the same `TypeError` as `query()`.
 
 ## Under the hood
 
-`revalidate()` calls `revalidateTag(<deepest tag of the key>, { expire: 0 })`. `expire: 0` expires the entry right away on Next 16; on Next 15, `revalidateTag` takes no second argument and ignores it. The same code works on both.
+`revalidate()` calls `revalidateTag(<the tag>, { expire: 0 })`. `expire: 0` expires the entry right away on Next 16; on Next 15, `revalidateTag` takes no second argument and ignores it. The same code works on both.
 
 ## The name clash with `export const revalidate`
 
