@@ -2,7 +2,9 @@
 // caches, revalidate() expires by prefix, and the package's server actions compile and run.
 // Run: pnpm --filter playground smoke
 import { spawn, execSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const PORT = 3199
 const BASE = `http://localhost:${PORT}`
@@ -27,6 +29,9 @@ const fail = (msg: string): never => {
   stop()
   process.exit(1)
 }
+// Any unexpected throw still takes the dev server down with it.
+process.on('uncaughtException', (e) => fail(String(e)))
+process.on('unhandledRejection', (e) => fail(String(e)))
 setTimeout(() => fail('timed out after 180s'), 180_000).unref()
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -61,5 +66,46 @@ await revalidate('products')
 if ((await fetchedAt('/products')) === list1) fail("revalidate('products') did not refetch /products")
 if ((await fetchedAt('/products/1')) === one1) fail("revalidate('products') did not refetch /products/1")
 
-console.log(`SMOKE OK (next ${version}): cache + revalidate`)
+// 4. The package's server action compiles and runs: find getQueries' id in Next's manifest and
+// call it the way the browser does. The layout mounts <NextQuery />, so / has compiled it.
+await fetchedAt('/')
+const dist = fileURLToPath(new URL('./.next/', import.meta.url))
+const manifests: string[] = []
+const walk = (dir: string) => {
+  let items
+  try {
+    items = readdirSync(dir, { withFileTypes: true })
+  } catch {
+    return
+  }
+  for (const item of items) {
+    const path = join(dir, item.name)
+    if (item.isDirectory()) walk(path)
+    else if (item.name === 'server-reference-manifest.json') manifests.push(path)
+  }
+}
+// Next 15 writes .next/server, Next 16 .next/dev/server (one manifest per route with Turbopack).
+walk(join(dist, 'server'))
+walk(join(dist, 'dev', 'server'))
+let actionId: string | undefined
+for (const path of manifests) {
+  const manifest = JSON.parse(readFileSync(path, 'utf8'))
+  for (const runtime of ['node', 'edge']) {
+    for (const [id, entry] of Object.entries<{ exportedName?: string }>(manifest[runtime] ?? {})) {
+      if (entry.exportedName === 'getQueries') actionId = id
+    }
+  }
+}
+if (!actionId) fail(`getQueries not in any server-reference-manifest.json (${manifests.length} found)`)
+const res = await fetch(`${BASE}/`, {
+  method: 'POST',
+  headers: { 'Next-Action': actionId!, Accept: 'text/x-component', 'Content-Type': 'text/plain;charset=UTF-8' },
+  body: '[]',
+})
+const flight = await res.text()
+if (!res.ok) fail(`getQueries action -> ${res.status}: ${flight.slice(0, 200)}`)
+if (!flight.includes('nq:products')) fail(`getQueries returned no products entry: ${flight.slice(0, 200)}`)
+console.log('getQueries action OK')
+
+console.log(`SMOKE OK (next ${version}): cache + revalidate + actions`)
 stop()
