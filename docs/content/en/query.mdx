@@ -68,6 +68,16 @@ With `revalidate: 60`, the data is fresh for 60 seconds. The first read after th
   Call [`revalidate()`](./revalidate) from a server action. It expires the entry immediately instead of waiting for the window.
 </Callout>
 
+## What about native fetch?
+
+Wrap it in `query()` and it shows up in the panel, and `revalidate('products')` reaches it:
+
+```ts
+const products = await query(['products'], () => fetch(url).then((r) => r.json()), { revalidate: 60 })
+```
+
+A bare `fetch()` still uses Next's data cache as usual, but next-query does not see it: `revalidate(key)` only expires `nq:*` tags, and the panel only lists `query()` calls.
+
 ## How it works
 
 `query()` wraps `fn` in `unstable_cache` with the key parts `['next-query', <JSON of the key>]`, and with the tags derived from the key (see [Keys and tags](./keys-and-tags)). Nothing else is stored, and `'use cache'` is not used. Because the JSON of the key is part of the cache key, `['products', 1]` and `['products', '1']` are different entries.
