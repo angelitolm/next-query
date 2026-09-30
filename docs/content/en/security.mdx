@@ -13,7 +13,15 @@ The demo component `NextQueryDemo` lives at `@angelitolm/next-query/demo`, not i
 
 ## Staging (self-hosted)
 
-For QA on a self-hosted staging server (`next build` + `next start`), set a secret of at least 16 characters on the server:
+next-query is a development tool. **Its panel does not belong in a production environment**, and nothing in the package turns it on there by itself.
+
+A staging server used for specific QA testing is the one exception, and it is **a decision your development team makes on purpose**: the panel stays off until someone sets the secret below on that server. Do it only on staging, only for the time QA needs it, and never on the environment your users reach.
+
+<Callout type="warning" title="Never in production">
+  Do not set `NEXT_QUERY_SECRET` in production, not even temporarily to debug. The panel exposes cached responses and lets whoever holds the secret revalidate your cache.
+</Callout>
+
+To enable it on a self-hosted staging server (`next build` + `next start`), set a secret of at least 16 characters on the server:
 
 ```bash
 NEXT_QUERY_SECRET=a-long-random-string
@@ -28,7 +36,7 @@ document.cookie = 'next-query=a-long-random-string; path=/; max-age=2592000; sam
 - Without the variable, or with one shorter than 16 characters, production behaves exactly as above.
 - Only a browser holding the `next-query` cookie asks the server (`hasAccess()`); the server compares it with the secret in constant time. A wrong cookie is refused like none.
 - The panel reads `.next/cache/fetch-cache` from disk, so it needs a single `next start` process with Next's default cache. On Vercel, serverless platforms or with a custom `cacheHandler` (Redis…) the fetch list is empty or partial.
-- On staging the registry keeps one entry per `query()` key read, in memory. Fine for QA traffic; do not set the secret in production.
+- On staging the registry keeps one entry per `query()` key read, in memory. Fine for QA traffic, one more reason it doesn't belong in production.
 - Anyone with the secret can read cached previews and revalidate tags. Treat it like a password: never use a `NEXT_PUBLIC_` variable for it, and rotate it when someone leaves the team.
 
 <Callout type="warning" title="next dev listens on your network">
