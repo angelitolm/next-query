@@ -71,7 +71,9 @@ if ((await fetchedAt('/products/1')) === one1) fail("revalidate('products') did 
 
 // 4. The package's server action compiles and runs: find getQueries' id in Next's manifest and
 // call it the way the browser does. The layout mounts <NextQuery />, so / has compiled it.
-await fetchedAt('/')
+const home = await (await fetch(`${BASE}/`)).text()
+// Next 15.0's webpack dev registers actions used by client components only once their client chunks compile, i.e. when a browser requests them.
+for (const [, src] of home.matchAll(/<script[^>]*\ssrc="(\/_next\/static\/[^"]+)"/g)) await (await fetch(BASE + src.replaceAll('&amp;', '&'))).text()
 const dist = fileURLToPath(new URL('./.next/', import.meta.url))
 const manifests: string[] = []
 const walk = (dir: string) => {
@@ -87,17 +89,28 @@ const walk = (dir: string) => {
     else if (item.name === 'server-reference-manifest.json') manifests.push(path)
   }
 }
-// Next 15 writes .next/server, Next 16 .next/dev/server (one manifest per route with Turbopack).
-walk(join(dist, 'server'))
-walk(join(dist, 'dev', 'server'))
-let actionId: string | undefined
-for (const path of manifests) {
-  const manifest = JSON.parse(readFileSync(path, 'utf8'))
-  for (const runtime of ['node', 'edge']) {
-    for (const [id, entry] of Object.entries<{ exportedName?: string }>(manifest[runtime] ?? {})) {
-      if (entry.exportedName === 'getQueries') actionId = id
+const findAction = (): string | undefined => {
+  manifests.length = 0
+  // Next 15 writes .next/server, Next 16 .next/dev/server (one manifest per route with Turbopack).
+  walk(join(dist, 'server'))
+  walk(join(dist, 'dev', 'server'))
+  for (const path of manifests) {
+    const raw = readFileSync(path, 'utf8')
+    // Next 15.0 has no exportedName: the id/name pairs only appear URL-encoded in each worker's moduleId.
+    const legacy = raw.match(/%22([0-9a-f]{20,})%22%2C%22getQueries%22/)?.[1]
+    if (legacy) return legacy
+    const manifest = JSON.parse(raw)
+    for (const runtime of ['node', 'edge']) {
+      for (const [id, entry] of Object.entries<{ exportedName?: string }>(manifest[runtime] ?? {})) {
+        if (entry.exportedName === 'getQueries') return id
+      }
     }
   }
+}
+let actionId = findAction()
+for (let i = 0; !actionId && i < 20; i++) {
+  await sleep(500)
+  actionId = findAction()
 }
 if (!actionId) fail(`getQueries not in any server-reference-manifest.json (${manifests.length} found)`)
 const res = await fetch(`${BASE}/`, {
