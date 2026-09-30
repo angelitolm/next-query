@@ -107,6 +107,10 @@ Verified 2026-09-29: a 'use server' module in the package is callable from the p
 - If an action call fails, the panel shows the error with a hint and the page keeps working.
 - Self-contained so a future NextKit can mount it next to `<NextToolbar />`: CSS classes prefixed `nq-`, styles inlined like next-toolbar's `styles.ts`, no assumptions about other overlays.
 
+### Visual design (added 2026-09-29)
+
+The panel follows next-toolbar's visual language (surfaces, launcher circle, rows, tag chips, icons, scrollbars, OS light/dark), recolored with an orange → yellow gradient (`#ff8a3d` → `#ffd23f`). Logo: one mark joining N and Q (the N's gradient diagonal continues as the Q's tail). No native `<select>`: sort is a segmented control. Each query with a numeric `revalidate` shows a freshness bar (age / revalidate) labelled `6s left` or `stale 12s`; `revalidate: false` shows "never stale". When `staleTime` exists later, the bar will measure it instead.
+
 ## Error handling
 
 - `fn` throws: `unstable_cache` doesn't cache it. `query()` records `error` (dev only) and rethrows, so the app's `error.tsx` handles it.
