@@ -28,7 +28,23 @@ function shortUrl(url: string, max = 44): string {
   const keep = max - 1
   return `${text.slice(0, Math.ceil(keep / 2))}…${text.slice(-Math.floor(keep / 2))}`
 }
-const display = (e: Entry) => (e.kind === 'fetch' ? shortUrl(e.label) : e.label)
+// A fetch card's label: the path is the main text, the host is dimmed and is what gets cut when the row is tight.
+function UrlLabel({ url }: { url: string }) {
+  let host = ''
+  let path = url
+  try {
+    const u = new URL(url)
+    host = u.host
+    path = u.pathname + u.search
+  } catch {}
+  if (path.length > 40) path = `${path.slice(0, 12)}…${path.slice(-27)}`
+  return (
+    <code className="url" title={url}>
+      {host && <span className="host">{host}</span>}
+      <span className="path">{path}</span>
+    </code>
+  )
+}
 
 export function Panel({ source, live, position = 'bottom-right', defaultOpen = false, mode = 'floating' }: PanelProps) {
   const inline = mode === 'inline'
@@ -229,7 +245,7 @@ function Card({ row, now, selected, busy, onSelect, onRevalidate }: CardProps) {
       <button className="card-select" onClick={onSelect} aria-pressed={selected}>
         <span className="card-top">
           <span className={`kind ${row.kind}`}>{row.kind}</span>
-          <code title={row.label}>{display(row)}</code>
+          {row.kind === 'fetch' ? <UrlLabel url={row.label} /> : <code title={row.label}>{row.label}</code>}
           <span className={`pill ${row.status}`}>{row.status}</span>
         </span>
         <span className="meter">

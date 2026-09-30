@@ -171,6 +171,9 @@ header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding:
 .kind.fetch { color: var(--nq-accent); }
 .row-url { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--nq-mono); }
 .empty code { font-family: var(--nq-mono); }
+.card-top code.url { display: flex; }
+.url .host { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--nq-dim); }
+.url .path { flex-shrink: 0; }
 .card-top code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--nq-text); }
 .meter { display: flex; align-items: center; gap: 10px; }
 .track { flex: 1; height: 4px; border-radius: 2px; background: var(--nq-raised); overflow: hidden; }
