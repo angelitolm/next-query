@@ -44,4 +44,4 @@ La clave incumplió una regla: debe ser un array no vacío de strings no vacíos
 
 ## El panel no se renderiza, o dice "next-query devtools are dev-only"
 
-El panel es solo de desarrollo. Con `next start` o una build de producción, `<NextQuery />` no renderiza ningún panel, y sus server actions se niegan a ejecutarse si algo las llama. Es lo esperado. `query()`, `revalidate()` y `tags()` siguen funcionando; mira [Seguridad](./security).
+El panel es solo de desarrollo. Con `next start` o una build de producción, `<NextQuery />` no renderiza ningún panel, y sus server actions se niegan a ejecutarse si algo las llama. Es lo esperado, salvo que lo hayas [activado para staging](./security#staging-self-hosted). `query()`, `revalidate()` y `tags()` siguen funcionando; mira [Seguridad](./security).

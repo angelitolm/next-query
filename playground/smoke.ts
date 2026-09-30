@@ -9,6 +9,8 @@ import { fileURLToPath } from 'node:url'
 const prod = process.argv.includes('--prod')
 const mode = prod ? ', prod' : ''
 const PORT = 3199
+// Production runs as an opted-in staging server: requests without the cookie must still be refused.
+const SECRET = 'smoke-staging-secret-0123456789'
 const BASE = `http://localhost:${PORT}`
 const version: string = JSON.parse(readFileSync(new URL('./node_modules/next/package.json', import.meta.url), 'utf8')).version
 console.log(`next ${version}`)
@@ -25,20 +27,9 @@ if (prod) {
     process.exit(1)
   }
 }
-if (prod) {
-  // The panel must not ship to apps that only mount <NextQuery />: no panel string in the client bundle.
-  const walkStatic = (dir: string): string[] =>
-    readdirSync(dir, { withFileTypes: true }).flatMap((i) => (i.isDirectory() ? walkStatic(join(dir, i.name)) : [join(dir, i.name)]))
-  const leaked = walkStatic(fileURLToPath(new URL('./.next/static', import.meta.url))).filter((f) => readFileSync(f, 'utf8').includes('data-nq-panel'))
-  if (leaked.length) {
-    console.error(`SMOKE FAIL (next ${version}${mode}): the panel is in the client bundle: ${leaked.join(', ')}`)
-    process.exit(1)
-  }
-  console.log('production client bundle has no panel')
-}
 const server = spawn(process.execPath, [...next, prod ? 'start' : 'dev', '--port', String(PORT)], {
   cwd: new URL('.', import.meta.url),
-  env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' },
+  env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1', ...(prod ? { NEXT_QUERY_SECRET: SECRET } : {}) },
   stdio: ['ignore', 'inherit', 'pipe'],
   detached: posix, // own process group, so the kill below also takes Next's workers
 })
@@ -110,6 +101,13 @@ if ((await fetchedAt('/native')) === native1) fail("revalidate('native') did not
 // 4. The package's server action compiles and runs: find getEntries' id in Next's manifest and
 // call it the way the browser does. The layout mounts <NextQuery />, so / has compiled it.
 const home = await (await fetch(`${BASE}/`)).text()
+if (prod) {
+  // The panel is a lazy chunk: pages must not load it for visitors (it downloads only after hasAccess()).
+  for (const [, src] of home.matchAll(/<script[^>]*\ssrc="(\/_next\/static\/[^"]+)"/g)) {
+    if ((await (await fetch(BASE + src.replaceAll('&amp;', '&'))).text()).includes('data-nq-panel')) fail(`the page loads the panel: ${src}`)
+  }
+  console.log('production page does not load the panel')
+}
 // Next 15.0's webpack dev registers actions used by client components only once their client chunks compile, i.e. when a browser requests them.
 if (!prod) for (const [, src] of home.matchAll(/<script[^>]*\ssrc="(\/_next\/static\/[^"]+)"/g)) await (await fetch(BASE + src.replaceAll('&amp;', '&'))).text()
 const dist = fileURLToPath(new URL('./.next/', import.meta.url))
@@ -150,10 +148,10 @@ for (let i = 0; !prod && !actionId && i < 20; i++) {
   await sleep(500)
   actionId = findAction()
 }
-const post = async (id: string, body = '[]') => {
+const post = async (id: string, body = '[]', cookie = '') => {
   const res = await fetch(`${BASE}/`, {
     method: 'POST',
-    headers: { 'Next-Action': id, Accept: 'text/x-component', 'Content-Type': 'text/plain;charset=UTF-8' },
+    headers: { 'Next-Action': id, Accept: 'text/x-component', 'Content-Type': 'text/plain;charset=UTF-8', ...(cookie ? { Cookie: cookie } : {}) },
     body,
   })
   return { ok: res.ok, status: res.status, flight: await res.text() }
@@ -182,6 +180,16 @@ if (prod) {
   // Only the package's 2 actions (getEntries, revalidateTags) log the guard; the fallback's ids also include the playground's own `rename`, which throws elsewhere.
   if (refused < 2) fail(`only ${refused} of 2 package actions were refused by the dev-only guard (server log)`)
   console.log(`dev-only actions refused in production (${ids.length} action${ids.length === 1 ? '' : 's'} called)`)
+  // Staging: a wrong cookie is refused like none; the right one lists a query() entry and a native fetch entry.
+  for (const id of ids) {
+    const { flight } = await post(id, '[]', 'next-query=wrong-secret-0123456789')
+    if (flight.includes('"entries"')) fail(`action ${id} returned the registry for a wrong secret`)
+  }
+  const flights = (await Promise.all(ids.map((id) => post(id, '[]', `next-query=${SECRET}`)))).map((r) => r.flight).join('\n')
+  for (const needle of ['"kind":"query"', '"kind":"fetch"', '/api/now', 'products']) {
+    if (!flights.includes(needle)) fail(`getEntries with the staging secret lacks ${needle}: ${flights.slice(0, 300)}`)
+  }
+  console.log('staging secret unlocks getEntries')
 } else {
   if (!actionId) fail(`getEntries not in any server-reference-manifest.json (${manifests.length} found)`)
   // Next 16.3+ dev keeps its fetch cache in .next/dev; .next/cache then only holds `next build` output, which the
@@ -202,5 +210,5 @@ if (prod) {
   console.log('getEntries action OK')
 }
 
-console.log(`SMOKE OK (next ${version}${mode}): cache + revalidate + actions${prod ? ' refused' : ''}`)
+console.log(`SMOKE OK (next ${version}${mode}): cache + revalidate + actions${prod ? ' refused + staging access' : ''}`)
 stop()

@@ -28,6 +28,8 @@ export type Entry = {
 }
 
 export const DEV_ONLY = 'next-query devtools are dev-only'
+/** Cookie that carries NEXT_QUERY_SECRET to a production server (staging access). */
+export const ACCESS_COOKIE = 'next-query'
 // Next's limits for unstable_cache tags.
 const MAX_TAG_LENGTH = 256
 export const MAX_TAGS = 128

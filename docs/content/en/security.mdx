@@ -4,12 +4,32 @@
 
 The demo component `NextQueryDemo` lives at `@angelitolm/next-query/demo`, not in the package root. It renders in production with only the entries you pass it and never calls the server, so it needs no dev guard. It is meant for docs and demos.
 
-## The panel is dev-only
+## The panel is dev-only by default
 
-- The query registry that feeds the panel exists only in `next dev`. In a production build the code that fills it is removed.
-- The panel reads the `.next` cache files (Next's fetch cache) and shows response previews in development only.
-- `<NextQuery />` renders `null` outside development and is tree-shaken, so the **production client bundle contains no panel code**. The playground's production smoke test checks this on every production run.
-- The panel talks to the server through server actions. A server action is a **public endpoint**, like any other. Each one throws `next-query devtools are dev-only` outside development, and the tags the browser sends are validated before they are used.
+- The query registry that feeds the panel only fills in `next dev` (or on a [staging server](#staging-self-hosted) that opted in).
+- The panel reads the `.next` cache files (Next's fetch cache) and shows response previews.
+- In a production build `<NextQuery />` renders `null` and makes no request. The panel itself is a separate chunk that **pages never load for visitors**; the playground's production smoke test checks this on every run.
+- The panel talks to the server through server actions. A server action is a **public endpoint**, like any other. Outside development each one throws `next-query devtools are dev-only` unless the request carries the staging secret, and the tags the browser sends are validated before they are used.
+
+## Staging (self-hosted)
+
+For QA on a self-hosted staging server (`next build` + `next start`), set a secret of at least 16 characters on the server:
+
+```bash
+NEXT_QUERY_SECRET=a-long-random-string
+```
+
+Then, in the browser that should see the panel, set it as the `next-query` cookie (once, from the DevTools console):
+
+```js
+document.cookie = 'next-query=a-long-random-string; path=/; max-age=2592000; samesite=strict'
+```
+
+- Without the variable, or with one shorter than 16 characters, production behaves exactly as above.
+- Only a browser holding the `next-query` cookie asks the server (`hasAccess()`); the server compares it with the secret in constant time. A wrong cookie is refused like none.
+- The panel reads `.next/cache/fetch-cache` from disk, so it needs a single `next start` process with Next's default cache. On Vercel, serverless platforms or with a custom `cacheHandler` (Redis…) the fetch list is empty or partial.
+- On staging the registry keeps one entry per `query()` key read, in memory. Fine for QA traffic; do not set the secret in production.
+- Anyone with the secret can read cached previews and revalidate tags. Treat it like a password: never use a `NEXT_PUBLIC_` variable for it, and rotate it when someone leaves the team.
 
 <Callout type="warning" title="next dev listens on your network">
   While `next dev` runs, anyone who can reach it (usually everyone on your LAN) can read previews of your cached fetch responses and query data, up to about 16 KB each, and revalidate tags. This is the same exposure as `next dev` itself. Do not run it on an untrusted network, and never expose a dev server to the internet.

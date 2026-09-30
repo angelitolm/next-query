@@ -44,4 +44,4 @@ The key broke a rule: it must be a non-empty array of non-empty strings or finit
 
 ## The panel doesn't render, or says "next-query devtools are dev-only"
 
-The panel is dev-only. With `next start` or a production build, `<NextQuery />` renders no panel at all, and its server actions refuse to run if something calls them. That is intended. `query()`, `revalidate()` and `tags()` keep working; see [Security](./security).
+The panel is dev-only. With `next start` or a production build, `<NextQuery />` renders no panel at all, and its server actions refuse to run if something calls them. That is intended, unless you [opted in for staging](./security#staging-self-hosted). `query()`, `revalidate()` and `tags()` keep working; see [Security](./security).

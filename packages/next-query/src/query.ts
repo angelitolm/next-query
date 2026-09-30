@@ -6,13 +6,21 @@ export type QueryConfig = {
   revalidate?: number | false
 }
 
+const MIN_SECRET_LENGTH = 16
+
+/** Production opt-in (self-hosted staging): NEXT_QUERY_SECRET, ignored when shorter than 16 characters. */
+export function stagingSecret(): string | undefined {
+  const secret = process.env.NEXT_QUERY_SECRET
+  return secret && secret.length >= MIN_SECRET_LENGTH ? secret : undefined
+}
+
 /** Caches `fn`'s result under `key`. `fn`'s result must be JSON-serializable. */
 export async function query<T>(key: QueryKey, fn: () => T | Promise<T>, options: QueryConfig = {}): Promise<T> {
   validateKey(key)
   const after = options.revalidate ?? false
   validateRevalidate(after)
-  // Dead code in production builds: the bundler inlines NODE_ENV.
-  const entry = process.env.NODE_ENV === 'development' ? recordRead(key, after) : undefined
+  // The registry feeds the panel: dev, or a staging server that opted in. It keeps one entry per key read.
+  const entry = process.env.NODE_ENV === 'development' || stagingSecret() ? recordRead(key, after) : undefined
 
   // The cached value carries its own timestamp so the panel knows when data was really fetched,
   // even on a cache hit or after a server restart.
