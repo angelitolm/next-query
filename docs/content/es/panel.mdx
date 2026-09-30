@@ -19,7 +19,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 ```
 
-`position` es `'bottom-right'` (por defecto) o `'bottom-left'`. Fuera de `next dev` no renderiza nada.
+`position` es `'bottom-right'` (por defecto) o `'bottom-left'`. Fuera de `next dev` no renderiza nada (salvo que lo [actives en un servidor de staging](./security#staging-self-hosted)).
+
+Con [NextToolbar](https://next-toolbar.angellm.dev) en la misma página, el botón y el panel se colocan justo encima de su barra mientras está desplegada, así que nunca tapan sus botones. Cuando la barra se minimiza a un círculo, vuelven a la esquina.
+
+Funciona con una propiedad CSS que comparten los dos paquetes: la herramienta anclada al borde inferior define `--next-kit-inset-bottom` en `<html>` con el espacio que ocupa, y el panel lo suma a su distancia al borde. Si no está definida, vale `0px`. Puedes definirla tú si tu app tiene su propia barra inferior:
+
+```css
+:root { --next-kit-inset-bottom: 64px; }
+```
 
 ## De dónde salen las entradas
 

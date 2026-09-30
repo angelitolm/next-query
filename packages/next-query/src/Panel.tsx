@@ -167,9 +167,9 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
             </label>
             <div className="sort" role="group" aria-label="Sort">
               {SORTS.map(([value, label, Icon]) => (
-                <button key={value} aria-pressed={sort === value} onClick={() => setSort(value)}>
+                <button key={value} aria-pressed={sort === value} onClick={() => setSort(value)} aria-label={`Sort by ${label}`} title={`Sort by ${label}`}>
                   <Icon size={14} />
-                  {label}
+                  <span className="sort-label">{label}</span>
                 </button>
               ))}
             </div>
@@ -186,7 +186,7 @@ export function Panel({ source, live, position = 'bottom-right', defaultOpen = f
               </button>
             )}
           </header>
-          {error && <div className="alert" role="alert">{error}. Check the dev server log.</div>}
+          {error && <div className="alert" role="alert">{error}. Check the server log.</div>}
           <div className="body">
             <ul className="list">
               {shown.length === 0 && <li className="empty">Nothing yet. A tagged fetch or a query() shows up after it runs once.</li>}

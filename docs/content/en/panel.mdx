@@ -19,7 +19,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 ```
 
-`position` is `'bottom-right'` (the default) or `'bottom-left'`. Outside `next dev` it renders nothing.
+`position` is `'bottom-right'` (the default) or `'bottom-left'`. Outside `next dev` it renders nothing (unless you [opt in on a staging server](./security#staging-self-hosted)).
+
+With [NextToolbar](https://next-toolbar.angellm.dev) on the same page, the button and the panel sit just above its bar while the bar is expanded, so they never cover its buttons. When the bar is minimized to a circle, they go back to the corner.
+
+It works through a CSS custom property both packages share: the devtool docked at the bottom edge sets `--next-kit-inset-bottom` on `<html>` to the room it takes, and the panel adds it to its bottom offset. Unset, it is `0px`. You can set it yourself if your app has its own bottom bar:
+
+```css
+:root { --next-kit-inset-bottom: 64px; }
+```
 
 ## Where the entries come from
 
