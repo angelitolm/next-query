@@ -1,6 +1,6 @@
 {
   "name": "@angelitolm/next-query",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Revalidate tagged fetch() calls by tag in the Next.js App Router, with a dev panel that lists every cached fetch and query",
   "keywords": ["nextjs", "next", "app-router", "cache", "revalidate", "unstable_cache", "revalidate-tag", "server-actions", "devtools", "react", "fetch", "fetch-cache", "tags", "cache-tags", "staging"],
   "author": "Angel Labrada Massó",
@@ -43,7 +43,7 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19.3.0",
-    "next": "16.3.6",
+    "next": "16.4.1",
     "react": "^19",
     "react-dom": "^19",
     "tsup": "^8",
